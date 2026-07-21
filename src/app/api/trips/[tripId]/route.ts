@@ -2,8 +2,6 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
 import { requireTripOwnership } from "@/lib/ownership"
-import { writeFile, mkdir } from "fs/promises"
-import { join } from "path"
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5 MB
 
@@ -77,13 +75,10 @@ export async function PATCH(
         return Response.json({ error: "Image trop volumineuse (max 5 Mo)" }, { status: 413 })
       }
 
-      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg"
-      const filename = `${params.tripId}.${ext}`
-      const uploadDir = join(process.cwd(), "public", "uploads", "trip-covers")
-      await mkdir(uploadDir, { recursive: true })
-      await writeFile(join(uploadDir, filename), Buffer.from(await file.arrayBuffer()))
+      // Stockage en data URL (base64) directement en base — compatible hébergement serverless
+      const mime = file.type || "image/jpeg"
+      const coverImageUrl = `data:${mime};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`
 
-      const coverImageUrl = `/uploads/trip-covers/${filename}`
       const trip = await db.trip.update({
         where: { id: params.tripId },
         data: { coverImageUrl },

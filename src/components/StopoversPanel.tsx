@@ -20,12 +20,13 @@ import { CSS } from "@dnd-kit/utilities"
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
-  GripVertical, Moon, Plus, Trash2, Pencil, X, BedDouble, Link2,
+  GripVertical, Moon, Plus, Trash2, Pencil, X, Link2, Copy, Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { PlatformBadge } from "@/components/PlatformBadge"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,32 +46,6 @@ interface Props {
   tripId:    string
   stopovers: Stopover[]
   onChange:  (stopovers: Stopover[]) => void
-}
-
-// ── Platform badge ────────────────────────────────────────────────────────────
-
-function PlatformBadge({ platform }: { platform: "booking" | "airbnb" | null }) {
-  if (platform === "booking") {
-    return (
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#003580] shrink-0">
-        <span className="text-white font-black text-[11px] leading-none tracking-tight">B.</span>
-      </div>
-    )
-  }
-  if (platform === "airbnb") {
-    return (
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF385C] shrink-0">
-        <svg className="h-4 w-4 fill-white" viewBox="0 0 32 32" aria-hidden>
-          <path d="M16 2c-1.3 0-2.4.7-3.1 1.8L7.5 12c-.9 1.5-1.5 3-1.5 4.5C6 20.6 9.4 24 13.5 24c1.1 0 2.2-.3 3.1-.8.9.5 2 .8 3.1.8C23.7 24 27 20.6 27 16.5c0-1.5-.6-3-1.5-4.5l-5.4-8.2C19.4 2.7 18.3 2 17 2h-1zm0 3.5l5 7.6c.6 1 1 2 1 3 0 2.5-2 4.5-4.5 4.5S13 18.5 13 16c0-1 .4-2 1-3l2-3.5V7l-.5-.8c.2-.1.3-.2.5-.2s.3.1.5.2L16 5.5z"/>
-        </svg>
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-terre-50 shrink-0">
-      <BedDouble className="h-3.5 w-3.5 text-terre-700" />
-    </div>
-  )
 }
 
 // ── Platform picker (3 toggle buttons) ───────────────────────────────────────
@@ -144,12 +119,47 @@ function toDateInput(iso: string) { return iso.slice(0, 10) }
 
 // ── Stopover modal (ajout & édition) ─────────────────────────────────────────
 
-type StopoverFormData = {
+export type StopoverFormData = {
   date: string; endDate: string | null; name: string | null; place: string | null;
   notes: string; platform: "booking" | "airbnb" | null; link: string | null
 }
 
-function StopoverModal({
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+  const hasUrl = url.length > 0
+
+  async function handleCopy() {
+    if (!hasUrl) return
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer")
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={!hasUrl}
+      title={!hasUrl ? "Aucun lien renseigné" : copied ? "Lien copié !" : "Copier le lien"}
+      className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors",
+        !hasUrl
+          ? "border-slate-100 bg-slate-50 text-slate-200 cursor-not-allowed"
+          : copied
+          ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+          : "border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300"
+      )}
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+    </button>
+  )
+}
+
+export function StopoverModal({
   title, initial, onSave, onClose, loading, error,
 }: {
   title:    string
@@ -281,14 +291,18 @@ function StopoverModal({
             <Label htmlFor="s-link">
               Lien <span className="text-slate-400 font-normal">(optionnel)</span>
             </Label>
-            <Input
-              id="s-link"
-              type="url"
-              placeholder="https://…"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              maxLength={2000}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="s-link"
+                type="url"
+                placeholder="https://…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                maxLength={2000}
+                className="flex-1"
+              />
+              <CopyLinkButton url={link.trim()} />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -357,8 +371,11 @@ function SortableStopover({
           <GripVertical className="h-4 w-4" />
         </button>
 
-        {/* Tile */}
-        <div className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0">
+        {/* Tile — clic pour ouvrir la modale d'édition */}
+        <div
+          onClick={onEdit}
+          className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0 cursor-pointer"
+        >
           {/* Icon */}
           <PlatformBadge platform={stop.platform} />
 
@@ -400,13 +417,13 @@ function SortableStopover({
           {/* Actions — on hover */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <button
-              onClick={onEdit}
+              onClick={(e) => { e.stopPropagation(); onEdit() }}
               className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             >
               <Pencil className="h-3 w-3" />
             </button>
             <button
-              onClick={onDelete}
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
               className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
             >
               <Trash2 className="h-3 w-3" />
@@ -488,8 +505,20 @@ export function StopoversPanel({ tripId, stopovers, onChange }: Props) {
         return
       }
       const created: Stopover = await res.json()
-      onChange([...stopovers, created])
+      // Insère la nuit dans l'ordre chronologique des dates d'arrivée
+      const next = [...stopovers, created].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      )
+      onChange(next)
       setAdding(false)
+      // Persiste le nouvel ordre pour qu'il survive à un rechargement
+      if (next.length > 1) {
+        fetch(`/api/trips/${tripId}/stopovers`, {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ order: next.map((s) => s.id) }),
+        }).catch(() => {})
+      }
     } catch {
       setSaveError("Impossible de contacter le serveur")
     } finally {
@@ -512,8 +541,19 @@ export function StopoversPanel({ tripId, stopovers, onChange }: Props) {
         return
       }
       const updated: Stopover = await res.json()
-      onChange(stopovers.map((s) => (s.id === id ? updated : s)))
+      // Re-trie au cas où la date modifiée change la position chronologique
+      const next = stopovers
+        .map((s) => (s.id === id ? updated : s))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      onChange(next)
       setEditId(null)
+      if (next.length > 1) {
+        fetch(`/api/trips/${tripId}/stopovers`, {
+          method:  "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ order: next.map((s) => s.id) }),
+        }).catch(() => {})
+      }
     } catch {
       setSaveError("Impossible de contacter le serveur")
     } finally {

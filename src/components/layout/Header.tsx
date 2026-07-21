@@ -45,9 +45,9 @@ export function Header({ user }: HeaderProps) {
     <header className="h-14 shrink-0 bg-white border-b border-slate-200 flex items-center px-4 gap-4 z-20 shadow-sm">
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0 mr-2">
-        <Image src="/logo.webp" alt="VéloVoyage" width={32} height={32} className="rounded-lg" unoptimized />
+        <Image src="/logo.webp" alt="Senchy" width={32} height={32} className="rounded-lg" unoptimized />
         <span className="text-lg font-bold text-slate-900 tracking-tight hidden sm:block">
-          VéloVoyage
+          Senchy
         </span>
       </Link>
 

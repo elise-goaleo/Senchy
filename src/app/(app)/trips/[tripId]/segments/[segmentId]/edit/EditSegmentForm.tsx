@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import {
-  ArrowLeft, CheckCircle2, Loader2, Upload, FileText, Bike, Train, Footprints,
+  ArrowLeft, CheckCircle2, Loader2, Upload, FileText, Bike, Train, Footprints, Car,
 } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,12 +33,13 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied" }
-const TYPE_COLORS: Record<string, string> = { gpx: "#10b981", train: "#3b82f6", walking: "#f59e0b" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#10b981", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike       className="h-4 w-4" />,
   train:   <Train      className="h-4 w-4" />,
   walking: <Footprints className="h-4 w-4" />,
+  car:     <Car        className="h-4 w-4" />,
 }
 
 function toDateInput(isoStr: string | null): string {

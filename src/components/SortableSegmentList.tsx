@@ -18,18 +18,21 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { cn } from "@/lib/utils"
-import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, CalendarDays, X, Check } from "lucide-react"
+import { createPortal } from "react-dom"
+import { cn, formatDuration } from "@/lib/utils"
+import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon } from "lucide-react"
 import type { TripSegment } from "@/app/(app)/trips/[tripId]/TripClientView"
+import type { Stopover } from "@/components/StopoversPanel"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied" }
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike       className="h-3.5 w-3.5" />,
   train:   <Train      className="h-3.5 w-3.5" />,
   walking: <Footprints className="h-3.5 w-3.5" />,
+  car:     <Car        className="h-3.5 w-3.5" />,
 }
 
 function segmentLabel(seg: TripSegment) {
@@ -41,9 +44,10 @@ function segmentLabel(seg: TripSegment) {
 // ── Grouping ──────────────────────────────────────────────────────────────────
 
 interface Group {
-  key:   string
-  label: string
-  segs:  TripSegment[]
+  key:      string
+  label:    string
+  dayNum:   number | null   // null for "Sans date"
+  segs:     TripSegment[]
 }
 
 function buildGroups(segments: TripSegment[]): { flatSorted: TripSegment[]; groups: Group[] } {
@@ -60,6 +64,8 @@ function buildGroups(segments: TripSegment[]): { flatSorted: TripSegment[]; grou
 
   // Build consecutive groups
   const groups: Group[] = []
+  let dayCounter = 0
+
   for (const seg of flatSorted) {
     const dateKey = seg.departureAt ? seg.departureAt.slice(0, 10) : "__nodate__"
     const last    = groups[groups.length - 1]
@@ -67,15 +73,16 @@ function buildGroups(segments: TripSegment[]): { flatSorted: TripSegment[]; grou
     if (last && last.key === dateKey) {
       last.segs.push(seg)
     } else {
-      const label =
-        dateKey === "__nodate__"
-          ? "Sans date"
-          : new Date(dateKey + "T12:00:00Z").toLocaleDateString("fr-FR", {
-              weekday: "long",
-              day:     "numeric",
-              month:   "long",
-            })
-      groups.push({ key: dateKey, label, segs: [seg] })
+      const isUndated = dateKey === "__nodate__"
+      if (!isUndated) dayCounter++
+      const label = isUndated
+        ? "Sans date"
+        : new Date(dateKey + "T12:00:00Z").toLocaleDateString("fr-FR", {
+            weekday: "long",
+            day:     "numeric",
+            month:   "long",
+          })
+      groups.push({ key: dateKey, label, dayNum: isUndated ? null : dayCounter, segs: [seg] })
     }
   }
 
@@ -151,7 +158,7 @@ function SortableItem({
               )}
               {seg.durationMin != null && (
                 <span className="text-xs text-slate-400 flex items-center gap-0.5">
-                  <Clock className="h-3 w-3" />{seg.durationMin} min
+                  <Clock className="h-3 w-3" />{formatDuration(seg.durationMin)}
                 </span>
               )}
             </div>
@@ -183,13 +190,34 @@ function SortableItem({
 
 // ── Date separator ────────────────────────────────────────────────────────────
 
-function DateSeparator({ label, isFirst }: { label: string; isFirst: boolean }) {
+function DateSeparator({
+  label, dayNum, isFirst, stopover, onStopoverClick,
+}: {
+  label:           string
+  dayNum:          number | null
+  isFirst:         boolean
+  stopover:        Stopover | null
+  onStopoverClick: (s: Stopover) => void
+}) {
   return (
     <div className={cn("flex items-center gap-2 px-1", isFirst ? "pb-1" : "pt-3 pb-1")}>
       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide capitalize whitespace-nowrap">
-        {label}
+        {dayNum !== null ? `Jour ${dayNum} · ${label}` : label}
       </span>
       <div className="flex-1 h-px bg-slate-100" />
+      {stopover ? (
+        <button
+          onClick={() => onStopoverClick(stopover)}
+          className="flex h-5 w-5 items-center justify-center rounded-md text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors shrink-0"
+          title={stopover.name ?? stopover.place ?? "Voir la nuit"}
+        >
+          <Moon className="h-3.5 w-3.5" />
+        </button>
+      ) : (
+        <div className="flex h-5 w-5 items-center justify-center shrink-0" title="Aucune nuit renseignée">
+          <Moon className="h-3.5 w-3.5 text-slate-200" />
+        </div>
+      )}
     </div>
   )
 }
@@ -295,16 +323,18 @@ function DateModal({
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
-  tripId:       string
-  segments:     TripSegment[]
-  selectedId:   string | null
-  onSelect:     (id: string) => void
-  onReorder:    (segments: TripSegment[]) => void
-  onDateChange: (id: string, date: string) => void
+  tripId:          string
+  segments:        TripSegment[]
+  stopovers:       Stopover[]
+  selectedId:      string | null
+  onSelect:        (id: string) => void
+  onReorder:       (segments: TripSegment[]) => void
+  onDateChange:    (id: string, date: string) => void
+  onStopoverClick: (stopover: Stopover) => void
 }
 
 export function SortableSegmentList({
-  tripId, segments, selectedId, onSelect, onReorder, onDateChange,
+  tripId, segments, stopovers, selectedId, onSelect, onReorder, onDateChange, onStopoverClick,
 }: Props) {
   const [activeId, setActiveId]           = useState<string | null>(null)
   const [dateTarget, setDateTarget]       = useState<TripSegment | null>(null)
@@ -350,10 +380,20 @@ export function SortableSegmentList({
       >
         <SortableContext items={flatSorted.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div>
-            {groups.map((group, gi) => (
+            {groups.map((group, gi) => {
+              const matchingStopover = group.key === "__nodate__"
+                ? null
+                : stopovers.find((s) => s.date.slice(0, 10) === group.key) ?? null
+              return (
               <div key={group.key}>
                 {/* Date separator — shown for ALL groups (dated + "Sans date") */}
-                <DateSeparator label={group.label} isFirst={gi === 0} />
+                <DateSeparator
+                  label={group.label}
+                  dayNum={group.dayNum}
+                  isFirst={gi === 0}
+                  stopover={matchingStopover}
+                  onStopoverClick={onStopoverClick}
+                />
 
                 {group.segs.map((seg) => (
                   <SortableItem
@@ -367,7 +407,8 @@ export function SortableSegmentList({
                   />
                 ))}
               </div>
-            ))}
+              )
+            })}
           </div>
         </SortableContext>
 
@@ -376,12 +417,13 @@ export function SortableSegmentList({
         </DragOverlay>
       </DndContext>
 
-      {dateTarget && (
+      {dateTarget && typeof document !== "undefined" && createPortal(
         <DateModal
           seg={dateTarget}
           onConfirm={(id, date) => { onDateChange(id, date); setDateTarget(null) }}
           onClose={() => setDateTarget(null)}
-        />
+        />,
+        document.body
       )}
     </>
   )

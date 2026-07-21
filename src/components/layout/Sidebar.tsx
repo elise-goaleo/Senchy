@@ -33,7 +33,7 @@ export function Sidebar({ user }: SidebarProps) {
           <Bike className="h-5 w-5 text-white" />
         </div>
         <span className="text-xl font-bold text-white tracking-tight">
-          VéloVoyage
+          Senchy
         </span>
       </div>
 

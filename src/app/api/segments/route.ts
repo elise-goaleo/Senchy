@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
 import { requireTripOwnership } from "@/lib/ownership"
 import { parseGpx, computeStats } from "@/lib/gpx"
+import { routeDriving } from "@/lib/routing"
 
 const MAX_GPX_SIZE = 10 * 1024 * 1024 // 10 MB
 
@@ -12,7 +13,7 @@ async function geocode(place: string): Promise<{ lat: number; lon: number } | nu
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`
     const res = await fetch(url, {
-      headers: { "User-Agent": "VeloVoyage/1.0 (contact@velovoyage.app)" },
+      headers: { "User-Agent": "Senchy/1.0 (contact@senchy.app)" },
     })
     const data = await res.json() as Array<{ lat: string; lon: string }>
     if (!data[0]) return null
@@ -42,24 +43,30 @@ function buildLineGeoJSON(
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const gpxBareSchema = z.object({
-  tripId:    z.string().min(1),
-  type:      z.literal("gpx"),
-  name:      z.string().max(200).optional(),
-  sortOrder: z.number().int().min(0),
+  tripId:      z.string().min(1),
+  type:        z.literal("gpx"),
+  name:        z.string().max(200).optional(),
+  departureAt: z.string().datetime().optional(),
+  komootUrl:   z.string().max(500).optional(),
+  sortOrder:   z.number().int().min(0),
 })
 
 const transitSegmentSchema = z.object({
   tripId:      z.string().min(1),
   name:        z.string().max(200).optional(),
-  type:        z.enum(["train", "walking"]),
+  type:        z.enum(["train", "walking", "car"]),
   origin:      z.string().min(1).max(300).optional(),
   destination: z.string().min(1).max(300).optional(),
+  originLat:   z.number().min(-90).max(90).optional(),
+  originLon:   z.number().min(-180).max(180).optional(),
+  destLat:     z.number().min(-90).max(90).optional(),
+  destLon:     z.number().min(-180).max(180).optional(),
   durationMin: z.number().int().positive().optional(),
   departureAt: z.string().datetime().optional(),
   arrivalAt:   z.string().datetime().optional(),
   sortOrder:   z.number().int().min(0),
 }).refine(
-  (d) => d.type === "walking" || d.durationMin != null || (d.departureAt != null && d.arrivalAt != null),
+  (d) => d.type === "walking" || d.type === "car" || d.durationMin != null || (d.departureAt != null && d.arrivalAt != null),
   { message: "Durée ou horaires de départ/arrivée requis" }
 )
 
@@ -170,12 +177,16 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400 }
         )
       }
-      const { tripId, name, sortOrder } = parsed.data
+      const { tripId, name, sortOrder, departureAt, komootUrl } = parsed.data
       try { await requireTripOwnership(tripId, user.id) } catch (err) {
         if (err instanceof Response) return err; throw err
       }
       const segment = await db.segment.create({
-        data: { tripId, type: "gpx", name: name ?? null, sortOrder },
+        data: {
+          tripId, type: "gpx", name: name ?? null, sortOrder,
+          departureAt: departureAt ? new Date(departureAt) : null,
+          komootUrl:   komootUrl || null,
+        },
       })
       return Response.json(segment, { status: 201 })
     }
@@ -208,15 +219,28 @@ export async function POST(request: Request): Promise<Response> {
       throw err
     }
 
-    // Geocode origin + destination to draw the route on the map
+    // Prefer exact coordinates picked from the address autocomplete; fall back to
+    // geocoding the typed text. Both origin and destination are optional.
+    const { originLat, originLon, destLat, destLon } = parsed.data
     const [fromCoords, toCoords] = await Promise.all([
-      geocode(origin),
-      geocode(destination),
+      originLat != null && originLon != null ? { lat: originLat, lon: originLon } : (origin ? geocode(origin) : null),
+      destLat   != null && destLon   != null ? { lat: destLat,   lon: destLon   } : (destination ? geocode(destination) : null),
     ])
 
-    const geojson = fromCoords && toCoords
-      ? buildLineGeoJSON(fromCoords, toCoords)
-      : null
+    // For car segments, follow the actual road network (OSRM); fall back to a
+    // straight line if routing fails. Other transit types stay straight lines.
+    let geojson = fromCoords && toCoords ? buildLineGeoJSON(fromCoords, toCoords) : null
+    let routedDistanceM:   number | null = null
+    let routedDurationMin: number | null = null
+
+    if (type === "car" && fromCoords && toCoords) {
+      const route = await routeDriving(fromCoords, toCoords)
+      if (route) {
+        geojson           = route.geojson
+        routedDistanceM   = route.distanceM
+        routedDurationMin = route.durationMin
+      }
+    }
 
     const segment = await db.segment.create({
       data: {
@@ -226,7 +250,8 @@ export async function POST(request: Request): Promise<Response> {
         sortOrder,
         origin,
         destination,
-        durationMin: durationMin ?? null,
+        distanceM:   routedDistanceM ?? null,
+        durationMin: durationMin ?? routedDurationMin ?? null,
         departureAt: departureAt ? new Date(departureAt) : null,
         arrivalAt:   arrivalAt   ? new Date(arrivalAt)   : null,
         geojson:     geojson ? (geojson as object) : undefined,

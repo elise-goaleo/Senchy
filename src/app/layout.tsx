@@ -13,8 +13,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "VeloRoute — Bike Trip Planner",
-    template: "%s | VeloRoute",
+    default: "Senchy — Bike Trip Planner",
+    template: "%s | Senchy",
   },
   description:
     "Plan your perfect bike trip. Manage GPX routes, track elevation, find points of interest, and prepare for any adventure.",

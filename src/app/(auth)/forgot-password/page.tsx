@@ -53,9 +53,9 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo / Brand */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <Image src="/logo.webp" alt="VéloVoyage" width={48} height={48} className="rounded-xl shadow-lg" unoptimized />
+          <Image src="/logo.webp" alt="Senchy" width={48} height={48} className="rounded-xl shadow-lg" unoptimized />
           <div>
-            <h1 className="text-2xl font-bold text-white">VeloRoute</h1>
+            <h1 className="text-2xl font-bold text-white">Senchy</h1>
             <p className="text-xs text-emerald-400">Bike Trip Planner</p>
           </div>
         </div>

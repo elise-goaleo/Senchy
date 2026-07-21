@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { writeFile, mkdir, unlink } from "fs/promises"
-import path from "path"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
 
@@ -24,36 +22,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Format non supporté (jpg, png, webp)" }, { status: 400 })
   }
 
-  // Delete old avatar file if it exists
-  const existing = await db.user.findUnique({
-    where: { id: authUser.id },
-    select: { avatarUrl: true },
-  })
-  if (existing?.avatarUrl) {
-    const oldFilename = existing.avatarUrl.split("/").pop()
-    if (oldFilename) {
-      try {
-        await unlink(path.join(process.cwd(), "public", "uploads", "avatars", oldFilename))
-      } catch {
-        // File may already be gone — ignore
-      }
-    }
-  }
-
-  // Save new file
   try {
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const dir = path.join(process.cwd(), "public", "uploads", "avatars")
-    await mkdir(dir, { recursive: true })
-
-    const filename = `${authUser.id}-${Date.now()}.jpg`
-    await writeFile(path.join(dir, filename), buffer)
-
-    const avatarUrl = `/uploads/avatars/${filename}`
+    // Stockage en data URL (base64) directement en base — compatible hébergement serverless
+    const buffer  = Buffer.from(await file.arrayBuffer())
+    const avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`
 
     await db.user.update({
       where: { id: authUser.id },
-      data: { avatarUrl },
+      data:  { avatarUrl },
     })
 
     return NextResponse.json({ avatarUrl })

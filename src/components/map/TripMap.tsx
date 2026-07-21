@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from "react-l
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { FeatureCollection } from "geojson"
+import { PlatformBadge } from "@/components/PlatformBadge"
 
 // Fix leaflet default icon issue in Next.js
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
@@ -16,10 +17,19 @@ L.Icon.Default.mergeOptions({
 
 // ── Segment colors ────────────────────────────────────────────────────────────
 
-const SEGMENT_COLORS: Record<string, string> = {
-  gpx:     "#4a6b5e",
-  train:   "#3b82f6",
-  walking: "#f59e0b",
+// Couleurs assombries/saturées pour ressortir sur les fonds clairs (vert/beige).
+const SEGMENT_COLORS_LIGHT: Record<string, string> = {
+  gpx:     "#4F7A66",  // vert vélo
+  train:   "#2563eb",  // bleu train
+  walking: "#ea8c00",  // ambre à pied
+  car:     "#7c3aed",  // violet voiture
+}
+// Couleurs plus vives pour ressortir sur le fond sombre.
+const SEGMENT_COLORS_DARK: Record<string, string> = {
+  gpx:     "#34d399",  // vert vif
+  train:   "#60a5fa",  // bleu clair
+  walking: "#fbbf24",  // ambre clair
+  car:     "#a78bfa",  // violet clair
 }
 
 const POI_COLORS: Record<string, string> = {
@@ -47,6 +57,18 @@ function circleIcon(color: string) {
   })
 }
 
+// Marqueur "nuit" : pastille indigo avec un croissant de lune (comme dans le panneau)
+function moonIcon() {
+  return L.divIcon({
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:#6366f1;border:2px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+    </div>`,
+    className: "",
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  })
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TripMapProps {
@@ -57,6 +79,7 @@ interface TripMapProps {
     name: string | null
     origin?: string | null
     destination?: string | null
+    version?: string
   }>
   pois: Array<{
     id: string
@@ -64,6 +87,16 @@ interface TripMapProps {
     lon: number
     category: string
     name: string | null
+  }>
+  stopovers?: Array<{
+    id: string
+    lat: number
+    lon: number
+    name: string | null
+    place: string | null
+    date: string
+    platform: "booking" | "airbnb" | null
+    link: string | null
   }>
   selectedSegmentId?: string | null
   onSegmentClick?: (id: string) => void
@@ -133,12 +166,17 @@ function FocusSegment({
 export default function TripMap({
   segments,
   pois,
+  stopovers = [],
   selectedSegmentId,
   onSegmentClick,
   height = "100%",
   tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }: TripMapProps) {
+  // Brighter palette on the dark basemap so colours stay legible
+  const isDarkBasemap = tileUrl.includes("dark_all")
+  const palette = isDarkBasemap ? SEGMENT_COLORS_DARK : SEGMENT_COLORS_LIGHT
+
   return (
     <MapContainer
       center={[46.5, 2.5]}
@@ -150,28 +188,53 @@ export default function TripMap({
         key={tileUrl}
         attribution={tileAttribution}
         url={tileUrl}
+        keepBuffer={6}
+        updateWhenZooming={false}
+        updateWhenIdle={false}
       />
 
       <InitialFit segments={segments} pois={pois} />
       <FocusSegment segments={segments} selectedSegmentId={selectedSegmentId} />
 
-      {/* Segment traces */}
+      {/* Segment traces — pass 1: white outline (casing effect) for all types */}
       {segments.map((seg) => {
         if (!seg.geojson) return null
         const isSelected = seg.id === selectedSegmentId
-        const color = SEGMENT_COLORS[seg.type] ?? "#64748b"
-        const isDashed = seg.type === "train" || seg.type === "walking"
+        return (
+          <GeoJSON
+            key={`${seg.id}-outline-${seg.version ?? ""}`}
+            data={seg.geojson}
+            style={{
+              color:     "white",
+              weight:    seg.type === "gpx" ? (isSelected ? 11 : 8) : (isSelected ? 9 : 7),
+              opacity:   1,
+              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : undefined,
+              lineCap:   "round",
+              lineJoin:  "round",
+            }}
+            pointToLayer={() => L.marker([0, 0], { opacity: 0 })}
+          />
+        )
+      })}
+
+      {/* Segment traces — pass 2: colored fill on top */}
+      {segments.map((seg) => {
+        if (!seg.geojson) return null
+        const isSelected = seg.id === selectedSegmentId
+        const color = palette[seg.type] ?? "#64748b"
+        const isDashed = seg.type === "train" || seg.type === "walking" || seg.type === "car"
         const label = seg.name ?? (seg.origin && seg.destination ? `${seg.origin} → ${seg.destination}` : null)
         return (
           <GeoJSON
-            key={`${seg.id}-${isSelected}`}
+            key={`${seg.id}-fill-${isSelected}-${seg.version ?? ""}`}
             data={seg.geojson}
             style={{
               color,
-              weight:    isSelected ? 6 : 4,
-              opacity:   isSelected ? 1 : 0.65,
-              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : undefined,
-              lineCap:   isDashed ? "round" : "round",
+              weight:    seg.type === "gpx" ? (isSelected ? 6 : 4) : (isSelected ? 5 : 3),
+              opacity:   isSelected ? 1 : 0.95,
+              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : undefined,
+              lineCap:   "round",
+              lineJoin:  "round",
             }}
             pointToLayer={() => L.marker([0, 0], { opacity: 0 })}
             onEachFeature={label ? (_, layer) => layer.bindTooltip(label, { sticky: true, className: "text-xs font-medium" }) : undefined}
@@ -198,6 +261,41 @@ export default function TripMap({
           </Popup>
         </Marker>
       ))}
+
+      {/* Stopover (night) markers — moon picto */}
+      {stopovers.map((stop) => {
+        const linkLabel = stop.platform === "booking"
+          ? "Voir sur Booking"
+          : stop.platform === "airbnb"
+          ? "Voir sur Airbnb"
+          : "Voir l'hébergement"
+        return (
+          <Marker key={`stop-${stop.id}`} position={[stop.lat, stop.lon]} icon={moonIcon()}>
+            <Popup>
+              <div className="text-sm" style={{ minWidth: 150 }}>
+                <div className="flex items-center gap-2">
+                  <PlatformBadge platform={stop.platform} />
+                  <p className="font-medium">{stop.name ?? "Nuit"}</p>
+                </div>
+                {stop.place && <p className="text-slate-500 text-xs mt-1">{stop.place}</p>}
+                <p className="text-slate-400 text-xs">
+                  {new Date(stop.date).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
+                </p>
+                {stop.link && (
+                  <a
+                    href={stop.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d]"
+                  >
+                    {linkLabel} →
+                  </a>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        )
+      })}
     </MapContainer>
   )
 }

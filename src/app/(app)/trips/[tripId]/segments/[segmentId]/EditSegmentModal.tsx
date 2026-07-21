@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { StationAutocomplete } from "@/components/StationAutocomplete"
+import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
 import {
   X, Pencil, Upload, FileText, CheckCircle2, Loader2,
 } from "lucide-react"
@@ -59,6 +61,8 @@ function ModalForm({
   const [date, setDate]               = useState(toDateInput(segment.departureAt))
   const [origin, setOrigin]           = useState(segment.origin ?? "")
   const [destination, setDestination] = useState(segment.destination ?? "")
+  const [originCoords, setOriginCoords]           = useState<AddressCoords | null>(null)
+  const [destinationCoords, setDestinationCoords] = useState<AddressCoords | null>(null)
   const [departureAt, setDepartureAt] = useState(toDatetimeLocal(segment.departureAt))
   const [arrivalAt, setArrivalAt]     = useState(toDatetimeLocal(segment.arrivalAt))
   const [durationMin, setDurationMin] = useState(segment.durationMin?.toString() ?? "")
@@ -109,11 +113,15 @@ function ModalForm({
         if (departureAt) body.departureAt = new Date(departureAt).toISOString()
         if (arrivalAt)   body.arrivalAt   = new Date(arrivalAt).toISOString()
         if (computedDuration) body.durationMin = computedDuration
-      } else if (segment.type === "walking") {
+      } else if (segment.type === "walking" || segment.type === "car") {
         body.origin      = origin.trim() || null
         body.destination = destination.trim() || null
         if (durationMin) body.durationMin = parseInt(durationMin, 10)
         body.departureAt = date ? new Date(date + "T12:00:00Z").toISOString() : null
+        if (segment.type === "car") {
+          if (originCoords)      { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+          if (destinationCoords) { body.destLat   = destinationCoords.lat; body.destLon = destinationCoords.lon }
+        }
       } else {
         body.departureAt = date ? new Date(date + "T12:00:00Z").toISOString() : null
       }
@@ -192,15 +200,19 @@ function ModalForm({
       )}
 
       {/* Origin / destination — transit */}
-      {(segment.type === "train" || segment.type === "walking") && (
+      {(segment.type === "train" || segment.type === "walking" || segment.type === "car") && (
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="m-origin">Départ</Label>
-            <Input id="m-origin" value={origin} onChange={(e) => setOrigin(e.target.value)} maxLength={300} />
+            {segment.type === "car"
+              ? <AddressAutocomplete id="m-origin" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder="Ex : 12 rue de la Paix, Lyon" />
+              : <StationAutocomplete id="m-origin" value={origin} onChange={setOrigin} placeholder="Ex : Gare de Lyon" />}
           </div>
           <div className="space-y-2">
             <Label htmlFor="m-dest">Arrivée</Label>
-            <Input id="m-dest" value={destination} onChange={(e) => setDestination(e.target.value)} maxLength={300} />
+            {segment.type === "car"
+              ? <AddressAutocomplete id="m-dest" value={destination} onChange={(v, c) => { setDestination(v); setDestinationCoords(c) }} placeholder="Ex : Vieux-Port, Marseille" />
+              : <StationAutocomplete id="m-dest" value={destination} onChange={setDestination} placeholder="Ex : Gare de Grenoble" />}
           </div>
         </div>
       )}
@@ -228,8 +240,8 @@ function ModalForm({
         </div>
       )}
 
-      {/* Walking duration */}
-      {segment.type === "walking" && (
+      {/* Walking / car duration */}
+      {(segment.type === "walking" || segment.type === "car") && (
         <div className="space-y-2">
           <Label htmlFor="m-dur">Durée (minutes)</Label>
           <Input id="m-dur" type="number" placeholder="Ex : 45" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} min={1} max={9999} />

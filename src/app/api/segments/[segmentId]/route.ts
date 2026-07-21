@@ -2,6 +2,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
 import { parseGpx, computeStats } from "@/lib/gpx"
+import { routeDriving } from "@/lib/routing"
 import type { GeoJSON } from "geojson"
 
 const MAX_GPX_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -12,7 +13,7 @@ async function geocode(place: string): Promise<{ lat: number; lon: number } | nu
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`
     const res = await fetch(url, {
-      headers: { "User-Agent": "VeloVoyage/1.0 (contact@velovoyage.app)" },
+      headers: { "User-Agent": "Senchy/1.0 (contact@senchy.app)" },
     })
     const data = await res.json() as Array<{ lat: string; lon: string }>
     if (!data[0]) return null
@@ -48,6 +49,10 @@ const updateSegmentSchema = z.object({
   arrivalAt:   z.string().datetime().nullable().optional(),
   origin:      z.string().max(300).nullable().optional(),
   destination: z.string().max(300).nullable().optional(),
+  originLat:   z.number().min(-90).max(90).optional(),
+  originLon:   z.number().min(-180).max(180).optional(),
+  destLat:     z.number().min(-90).max(90).optional(),
+  destLon:     z.number().min(-180).max(180).optional(),
   durationMin: z.number().int().positive().nullable().optional(),
   notes:       z.string().nullable().optional(),
   komootUrl:   z.string().url().nullable().optional(),
@@ -167,19 +172,33 @@ export async function PATCH(
     let geoUpdate: Record<string, unknown> = {}
 
     if (segment.type !== "gpx") {
-      const effectiveOrigin      = parsed.data.origin      !== undefined ? parsed.data.origin      : segment.origin
-      const effectiveDestination = parsed.data.destination !== undefined ? parsed.data.destination : segment.destination
+      const d = parsed.data
+      const effectiveOrigin      = d.origin      !== undefined ? d.origin      : segment.origin
+      const effectiveDestination = d.destination !== undefined ? d.destination : segment.destination
 
-      if (effectiveOrigin && effectiveDestination) {
-        const fromCoords = await geocode(effectiveOrigin)
-        const toCoords   = await geocode(effectiveDestination)
-        if (fromCoords && toCoords) {
-          geoUpdate = {
-            geojson:  buildLineGeoJSON(fromCoords, toCoords) as object,
-            startLat: fromCoords.lat,
-            startLon: fromCoords.lon,
-          }
-        }
+      // Prefer exact coordinates picked from the address autocomplete; fall back to geocoding.
+      const fromCoords = d.originLat != null && d.originLon != null
+        ? { lat: d.originLat, lon: d.originLon }
+        : (effectiveOrigin ? await geocode(effectiveOrigin) : null)
+      const toCoords = d.destLat != null && d.destLon != null
+        ? { lat: d.destLat, lon: d.destLon }
+        : (effectiveDestination ? await geocode(effectiveDestination) : null)
+
+      if (fromCoords && toCoords) {
+        // Car segments follow the road network; fall back to a straight line.
+        const route = segment.type === "car" ? await routeDriving(fromCoords, toCoords) : null
+        geoUpdate = route
+          ? {
+              geojson:   route.geojson as object,
+              startLat:  fromCoords.lat,
+              startLon:  fromCoords.lon,
+              distanceM: route.distanceM,
+            }
+          : {
+              geojson:  buildLineGeoJSON(fromCoords, toCoords) as object,
+              startLat: fromCoords.lat,
+              startLon: fromCoords.lon,
+            }
       }
     }
 

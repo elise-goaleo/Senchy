@@ -1,3 +1,9 @@
 node_modules/
 .next/
 .env*
+
+# Artefacts de build
+tsconfig.tsbuildinfo
+
+# Contenu uploadé (désormais stocké en base64 en base)
+/public/uploads/

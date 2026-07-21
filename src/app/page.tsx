@@ -17,8 +17,8 @@ export default async function HomePage() {
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <Image src="/logo.webp" alt="VéloVoyage" width={36} height={36} className="rounded-lg" unoptimized />
-          <span className="text-xl font-bold text-white">VéloVoyage</span>
+          <Image src="/logo.webp" alt="Senchy" width={36} height={36} className="rounded-lg" unoptimized />
+          <span className="text-xl font-bold text-white">Senchy</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">

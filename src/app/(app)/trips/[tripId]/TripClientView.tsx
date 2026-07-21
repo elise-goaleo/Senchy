@@ -1,21 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { DynamicTripMap } from "@/components/map/DynamicTripMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
 import { SortableSegmentList } from "@/components/SortableSegmentList"
-import { StopoversPanel, type Stopover } from "@/components/StopoversPanel"
+import { StopoversPanel, StopoverModal, type Stopover, type StopoverFormData } from "@/components/StopoversPanel"
 import { useMapLayer } from "@/hooks/useMapLayer"
+import { useStopoverMarkers } from "@/hooks/useStopoverMarkers"
 import { AddSegmentModal } from "./AddSegmentModal"
 import { EditSegmentModal } from "./segments/[segmentId]/EditSegmentModal"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn, formatDuration } from "@/lib/utils"
 import { ElevationChart } from "@/components/charts/ElevationChart"
+import { exportTripToExcel } from "@/hooks/useExportTrip"
 import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
-  Clock, X, ArrowRight, Bike, Train, Footprints, CalendarClock,
-  Sun, Moon, Link2, ChevronDown,
+  Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
+  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -53,12 +55,22 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied" }
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture" }
+const EMPTY_POIS: never[] = []
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike      className="h-4 w-4" />,
   train:   <Train     className="h-4 w-4" />,
   walking: <Footprints className="h-4 w-4" />,
+  car:     <Car       className="h-4 w-4" />,
+}
+
+const MODE_ORDER = ["gpx", "car", "train", "walking"]
+const CHIP_ICONS: Record<string, React.ReactNode> = {
+  gpx:     <Bike       className="h-3.5 w-3.5" />,
+  car:     <Car        className="h-3.5 w-3.5" />,
+  train:   <Train      className="h-3.5 w-3.5" />,
+  walking: <Footprints className="h-3.5 w-3.5" />,
 }
 
 function segmentLabel(seg: TripSegment) {
@@ -82,7 +94,6 @@ export function TripClientView({
   tripId, tripName, tripDescription,
   segments,
   initialStopovers,
-  totalDistanceM, totalElevGainM, totalElevLossM,
 }: Props) {
   const [selectedId,      setSelectedId]      = useState<string | null>(null)
   const [orderedSegs,     setOrderedSegs]     = useState(segments)
@@ -90,6 +101,11 @@ export function TripClientView({
   const [addOpen,         setAddOpen]         = useState(false)
   const [panel,           setPanel]           = useState<"segments" | "stopovers">("segments")
   const [bottomCollapsed, setBottomCollapsed] = useState(false)
+  const [editingStopover, setEditingStopover] = useState<Stopover | null>(null)
+  const [stopoverSaving,  setStopoverSaving]  = useState(false)
+  const [stopoverError,   setStopoverError]   = useState<string | null>(null)
+  const [deletingId,      setDeletingId]      = useState<string | null>(null)
+  const [distanceMode,    setDistanceMode]    = useState<string>("")
   const { layer, setLayer, layers }           = useMapLayer()
 
   // Sync segment data when server props change (e.g. after router.refresh() from EditSegmentModal)
@@ -103,15 +119,69 @@ export function TripClientView({
     })
   }, [segments])
 
+  // Cumulative stats, broken down by segment type
+  const modeStats = useMemo(() => {
+    const byMode: Record<string, { distanceM: number; gainM: number; lossM: number }> = {}
+    for (const s of orderedSegs) {
+      const b = (byMode[s.type] ??= { distanceM: 0, gainM: 0, lossM: 0 })
+      b.distanceM += s.distanceM ?? 0
+      b.gainM     += s.elevationGainM ?? 0
+      b.lossM     += s.elevationLossM ?? 0
+    }
+    return byMode
+  }, [orderedSegs])
+
+  const presentModes = MODE_ORDER.filter((m) => modeStats[m])
+  const activeStats  = modeStats[distanceMode] ?? { distanceM: 0, gainM: 0, lossM: 0 }
+
+  // Geocode night addresses → moon markers on the map
+  const stopoverMarkers = useStopoverMarkers(stopovers)
+
+  // Default to (or fall back to) the first available type
+  useEffect(() => {
+    if (!modeStats[distanceMode]) setDistanceMode(presentModes[0] ?? "")
+  }, [distanceMode, modeStats, presentModes])
+
   const selected = orderedSegs.find((s) => s.id === selectedId) ?? null
 
-  const mapSegments = orderedSegs.map((s) => ({
-    id: s.id, type: s.type, geojson: s.geojson, name: s.name,
-    origin: s.origin, destination: s.destination,
-  }))
+  const mapSegments = useMemo(
+    () => orderedSegs.map((s) => ({
+      id: s.id, type: s.type, geojson: s.geojson, name: s.name,
+      origin: s.origin, destination: s.destination,
+      // Signature de la trace : change quand le GPX est remplacé, pour forcer
+      // react-leaflet à redessiner (il ne réagit pas aux seuls changements de `data`)
+      version: `${s.distanceM ?? ""}|${s.elevationGainM ?? ""}|${s.elevationLossM ?? ""}|${s.startLat ?? ""}|${s.startLon ?? ""}`,
+    })),
+    [orderedSegs]
+  )
 
-  function handleSegmentClick(id: string) {
+  const handleSegmentClick = useCallback((id: string) => {
     setSelectedId((prev) => (prev === id ? null : id))
+  }, [])
+
+  async function handleStopoverEdit(data: StopoverFormData) {
+    if (!editingStopover) return
+    setStopoverSaving(true)
+    setStopoverError(null)
+    try {
+      const res = await fetch(`/api/trips/${tripId}/stopovers/${editingStopover.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        setStopoverError(d.error ?? "Erreur lors de la mise à jour.")
+        return
+      }
+      const updated: Stopover = await res.json()
+      setStopovers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+      setEditingStopover(null)
+    } catch {
+      setStopoverError("Une erreur inattendue s'est produite.")
+    } finally {
+      setStopoverSaving(false)
+    }
   }
 
   async function handleDateChange(segmentId: string, dateValue: string) {
@@ -157,6 +227,19 @@ export function TripClientView({
     })
   }
 
+  async function handleDeleteSegment(segmentId: string) {
+    setDeletingId(segmentId)
+    try {
+      const res = await fetch(`/api/segments/${segmentId}`, { method: "DELETE" })
+      if (res.ok) {
+        setOrderedSegs((prev) => prev.filter((s) => s.id !== segmentId))
+        setSelectedId(null)
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <div className="relative h-full">
 
@@ -168,29 +251,83 @@ export function TripClientView({
         onAdded={(seg) => setOrderedSegs((prev) => prev.some((s) => s.id === seg.id) ? prev : [...prev, seg])}
       />
 
+      {editingStopover && (
+        <StopoverModal
+          title="Modifier la nuit"
+          initial={{
+            date:     editingStopover.date.slice(0, 10),
+            endDate:  editingStopover.endDate,
+            name:     editingStopover.name,
+            place:    editingStopover.place,
+            notes:    editingStopover.notes ?? "",
+            platform: editingStopover.platform,
+            link:     editingStopover.link,
+          }}
+          onSave={handleStopoverEdit}
+          onClose={() => setEditingStopover(null)}
+          loading={stopoverSaving}
+          error={stopoverError}
+        />
+      )}
+
       {/* ── Left panel ────────────────────────────────────────────── */}
-      <aside className="absolute top-3 left-3 bottom-3 w-[360px] bg-white flex flex-col overflow-hidden shadow-xl z-10 rounded-2xl">
+      <aside className="absolute top-3 left-3 h-[calc(100%-1.5rem)] w-[360px] bg-white flex flex-col overflow-hidden shadow-xl z-10 rounded-2xl [transform:translateZ(0)]">
 
         {/* Header */}
         <div className="px-5 pt-4 pb-4">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700 transition-colors mb-3"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Mes voyages
-          </Link>
+          <div className="flex items-center justify-between mb-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Mes voyages
+            </Link>
+            <button
+              onClick={() => exportTripToExcel(tripName, orderedSegs, stopovers)}
+              title="Exporter en Excel"
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-600"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Export
+            </button>
+          </div>
           <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
           {tripDescription && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{tripDescription}</p>
           )}
         </div>
 
-        {/* Stats bar */}
+        {/* Distance filter chips — break the cumulative distance down by type */}
+        {presentModes.length > 0 && (
+          <div className="px-5 pb-3 flex items-center gap-1.5 flex-wrap">
+            {presentModes.map((m) => {
+              const active = distanceMode === m
+              const km = modeStats[m].distanceM
+              return (
+                <button
+                  key={m}
+                  onClick={() => setDistanceMode(m)}
+                  title={TYPE_LABELS[m]}
+                  style={active ? { backgroundColor: TYPE_COLORS[m] + "20", color: TYPE_COLORS[m] } : undefined}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors",
+                    active ? "font-semibold" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  <span style={{ color: TYPE_COLORS[m] }}>{CHIP_ICONS[m]}</span>
+                  {km > 0 ? `${Math.round(km / 1000)} km` : TYPE_LABELS[m]}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Stats bar — reflects the selected type filter */}
         <div className="grid grid-cols-2 divide-x divide-slate-100">
           {[
-            { icon: <Route className="h-4 w-4" />, value: (totalDistanceM / 1000).toFixed(0) + " km", label: "Distance", color: "text-[#7F9C8D]" },
-            { icon: <TrendingUp className="h-4 w-4" />, value: totalElevGainM > 0 ? Math.round(totalElevGainM) + " m" : "—", label: "Dénivelé +", color: "text-[#D15F36]" },
+            { icon: <Route className="h-4 w-4" />, value: activeStats.distanceM > 0 ? (activeStats.distanceM / 1000).toFixed(0) + " km" : "—", label: TYPE_LABELS[distanceMode] ? `Distance · ${TYPE_LABELS[distanceMode]}` : "Distance", color: "text-[#7F9C8D]" },
+            { icon: <TrendingUp className="h-4 w-4" />, value: activeStats.gainM > 0 ? Math.round(activeStats.gainM) + " m" : "—", label: "Dénivelé +", color: "text-[#D15F36]" },
           ].map(({ icon, value, label, color }) => (
             <div key={label} className="flex items-center justify-center gap-2 py-2.5 px-4">
               <div className={cn("shrink-0", color)}>{icon}</div>
@@ -263,10 +400,12 @@ export function TripClientView({
                 <SortableSegmentList
                   tripId={tripId}
                   segments={orderedSegs}
+                  stopovers={stopovers}
                   selectedId={selectedId}
                   onSelect={handleSegmentClick}
                   onReorder={setOrderedSegs}
                   onDateChange={handleDateChange}
+                  onStopoverClick={(s) => { setEditingStopover(s); setStopoverError(null) }}
                 />
               )}
             </div>
@@ -299,11 +438,12 @@ export function TripClientView({
       </div>
 
       {/* ── Map ───────────────────────────────────────────────────── */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 [transform:translateZ(0)]">
         {orderedSegs.length > 0 ? (
           <DynamicTripMap
             segments={mapSegments}
-            pois={[]}
+            pois={EMPTY_POIS}
+            stopovers={stopoverMarkers}
             selectedSegmentId={selectedId}
             onSegmentClick={handleSegmentClick}
             height="100%"
@@ -356,8 +496,8 @@ export function TripClientView({
               </div>
 
               {/* Name */}
-              <div className="min-w-0 shrink-0 max-w-[160px]">
-                <p className="font-semibold text-slate-900 truncate">{segmentLabel(selected)}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900 break-words">{segmentLabel(selected)}</p>
                 <p className="text-xs text-slate-400">{TYPE_LABELS[selected.type]}</p>
               </div>
 
@@ -406,7 +546,7 @@ export function TripClientView({
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Clock className="h-4 w-4 text-slate-400" />
                     <div>
-                      <p className="text-sm font-bold text-slate-900 leading-none">{selected.durationMin} min</p>
+                      <p className="text-sm font-bold text-slate-900 leading-none">{formatDuration(selected.durationMin)}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Durée</p>
                     </div>
                   </div>
@@ -437,7 +577,7 @@ export function TripClientView({
 
               {/* Actions */}
               <div className="flex items-center gap-2 shrink-0">
-                {selected.type !== "train" && (
+                {selected.type !== "train" && selected.type !== "car" && (
                   selected.komootUrl ? (
                     <a
                       href={selected.komootUrl}
@@ -454,27 +594,41 @@ export function TripClientView({
                     </div>
                   )
                 )}
-                {selected.type === "train" ? (
-                  <EditSegmentModal
-                    segment={{
-                      id:          selected.id,
-                      type:        selected.type,
-                      name:        selected.name,
-                      origin:      selected.origin,
-                      destination: selected.destination,
-                      durationMin: selected.durationMin,
-                      departureAt: selected.departureAt,
-                      arrivalAt:   selected.arrivalAt,
-                      komootUrl:   selected.komootUrl,
-                    }}
-                  />
-                ) : (
+                <EditSegmentModal
+                  segment={{
+                    id:          selected.id,
+                    type:        selected.type,
+                    name:        selected.name,
+                    origin:      selected.origin,
+                    destination: selected.destination,
+                    durationMin: selected.durationMin,
+                    departureAt: selected.departureAt,
+                    arrivalAt:   selected.arrivalAt,
+                    komootUrl:   selected.komootUrl,
+                  }}
+                />
+                {selected.type !== "train" && selected.type !== "car" && (
                   <Link href={`/trips/${tripId}/segments/${selected.id}`}>
                     <button className="flex items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 py-1.5 rounded-lg transition-colors">
                       Détail
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </Link>
+                )}
+                {(selected.type === "train" || selected.type === "car") && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Supprimer le segment "${selected.name ?? selected.origin + " → " + selected.destination}" ?`))
+                        handleDeleteSegment(selected.id)
+                    }}
+                    disabled={deletingId === selected.id}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                    title="Supprimer ce segment"
+                  >
+                    {deletingId === selected.id
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Trash2 className="h-4 w-4" />}
+                  </button>
                 )}
                 <button
                   onClick={() => setSelectedId(null)}

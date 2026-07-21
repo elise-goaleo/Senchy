@@ -10,7 +10,7 @@ async function geocode(place: string): Promise<{ lat: number; lon: number } | nu
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`,
-      { headers: { "User-Agent": "VeloVoyage/1.0 (contact@velovoyage.app)" }, next: { revalidate: 0 } }
+      { headers: { "User-Agent": "Senchy/1.0 (contact@senchy.app)" }, next: { revalidate: 0 } }
     )
     const data = await res.json() as Array<{ lat: string; lon: string }>
     if (!data[0]) return null

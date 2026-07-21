@@ -10,6 +10,7 @@ import { ElevationChart } from "@/components/charts/ElevationChart"
 import { TravelTimeCalculator } from "@/components/TravelTimeCalculator"
 import { DeleteSegmentButton } from "./DeleteSegmentButton"
 import { EditSegmentModal } from "./EditSegmentModal"
+import { DownloadGpxButton } from "./DownloadGpxButton"
 import {
   TrendingUp,
   TrendingDown,
@@ -173,6 +174,13 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               <Link2 className="h-3.5 w-3.5" />
               Komoot
             </Button>
+          )}
+          {(segment.type === "gpx" || segment.type === "walking") && (
+            <DownloadGpxButton
+              segmentId={segment.id}
+              hasGpx={segment.gpxRaw != null}
+              filename={segmentLabel}
+            />
           )}
           <EditSegmentModal
             segment={{

@@ -14,23 +14,23 @@ export async function sendPasswordResetEmail(
   to: string,
   resetUrl: string
 ): Promise<void> {
-  const from = process.env.SMTP_FROM ?? "noreply@velovoyage.app"
+  const from = process.env.SMTP_FROM ?? "noreply@senchy.app"
 
   await transporter.sendMail({
-    from: `"VéloVoyage" <${from}>`,
+    from: `"Senchy" <${from}>`,
     to,
     subject: "Réinitialisation de votre mot de passe",
     text: `
 Bonjour,
 
-Vous avez demandé la réinitialisation de votre mot de passe VéloVoyage.
+Vous avez demandé la réinitialisation de votre mot de passe Senchy.
 
 Cliquez sur le lien ci-dessous pour choisir un nouveau mot de passe (valable 1 heure) :
 ${resetUrl}
 
 Si vous n'avez pas fait cette demande, ignorez simplement cet email.
 
-— L'équipe VéloVoyage
+— L'équipe Senchy
     `.trim(),
     html: `
 <!DOCTYPE html>
@@ -40,7 +40,7 @@ Si vous n'avez pas fait cette demande, ignorez simplement cet email.
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#1e293b,#064e3b);padding:32px 32px 24px;">
-      <h1 style="color:#fff;font-size:20px;margin:0;font-weight:700;">VéloVoyage</h1>
+      <h1 style="color:#fff;font-size:20px;margin:0;font-weight:700;">Senchy</h1>
       <p style="color:#6ee7b7;font-size:12px;margin:4px 0 0;">Bike Trip Planner</p>
     </div>
     <!-- Body -->
