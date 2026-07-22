@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Calendar, TrendingUp, Map, Copy, Loader2, Bike, Footprints } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTripModal, type TripEditData } from "@/components/EditTripModal"
+import { DeleteTripButton } from "@/components/DeleteTripButton"
 
 interface TripCardProps {
   trip: {
@@ -95,6 +96,7 @@ export function TripCard({ trip }: TripCardProps) {
 
       {/* Actions — top right of cover */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        <DeleteTripButton tripId={trip.id} tripName={trip.name} />
         <button
           onClick={handleDuplicate}
           disabled={duplicating}
