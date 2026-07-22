@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { DynamicTripMap } from "@/components/map/DynamicTripMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
 import { SortableSegmentList } from "@/components/SortableSegmentList"
@@ -95,6 +96,7 @@ export function TripClientView({
   segments,
   initialStopovers,
 }: Props) {
+  const router = useRouter()
   const [selectedId,      setSelectedId]      = useState<string | null>(null)
   const [orderedSegs,     setOrderedSegs]     = useState(segments)
   const [stopovers,       setStopovers]       = useState<Stopover[]>(initialStopovers)
@@ -158,6 +160,22 @@ export function TripClientView({
   const handleSegmentClick = useCallback((id: string) => {
     setSelectedId((prev) => (prev === id ? null : id))
   }, [])
+
+  // Sur mobile, taper un segment vélo (gpx) dans la liste ouvre directement sa
+  // page détail (la carte de segment sélectionné est hors écran sur petit écran).
+  const handleSegmentSelect = useCallback((id: string) => {
+    const isMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    if (isMobile) {
+      const seg = orderedSegs.find((s) => s.id === id)
+      if (seg?.type === "gpx") {
+        router.push(`/trips/${tripId}/segments/${id}`)
+        return
+      }
+    }
+    handleSegmentClick(id)
+  }, [orderedSegs, router, tripId, handleSegmentClick])
 
   async function handleStopoverEdit(data: StopoverFormData) {
     if (!editingStopover) return
@@ -402,7 +420,7 @@ export function TripClientView({
                   segments={orderedSegs}
                   stopovers={stopovers}
                   selectedId={selectedId}
-                  onSelect={handleSegmentClick}
+                  onSelect={handleSegmentSelect}
                   onReorder={setOrderedSegs}
                   onDateChange={handleDateChange}
                   onStopoverClick={(s) => { setEditingStopover(s); setStopoverError(null) }}
