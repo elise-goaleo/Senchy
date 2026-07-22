@@ -19,6 +19,7 @@ import {
   Train,
   Clock,
   ArrowRight,
+  ArrowLeft,
   CalendarDays,
   Link2,
 } from "lucide-react"
@@ -124,8 +125,8 @@ export default async function SegmentDetailPage({ params }: PageProps) {
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+      {/* Breadcrumb (desktop) */}
+      <div className="hidden lg:flex items-center gap-2 text-sm text-slate-500 mb-6">
         <Link href="/dashboard" className="hover:text-slate-900 transition-colors">
           Mes voyages
         </Link>
@@ -140,8 +141,17 @@ export default async function SegmentDetailPage({ params }: PageProps) {
         <span className="text-slate-800 font-medium truncate">{segmentLabel}</span>
       </div>
 
+      {/* Retour (mobile) */}
+      <Link
+        href={`/trips/${params.tripId}`}
+        className="lg:hidden inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors mb-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Retour
+      </Link>
+
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold text-slate-900">{segmentLabel}</h1>
@@ -161,7 +171,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
           {segment.komootUrl ? (
             <a href={segment.komootUrl} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm" className="gap-1.5">
