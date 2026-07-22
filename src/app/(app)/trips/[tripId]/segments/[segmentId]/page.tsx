@@ -261,13 +261,13 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               },
             ].map(({ icon: Icon, label, value, color, bg }) => (
               <Card key={label}>
-                <CardContent className="flex items-center gap-3 pt-5 pb-4">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg} shrink-0`}>
-                    <Icon className={`h-5 w-5 ${color}`} />
+                <CardContent className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 pt-5 pb-4">
+                  <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl ${bg} shrink-0`}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${color}`} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-slate-500">{label}</p>
-                    <p className="text-lg font-bold text-slate-900">{value}</p>
+                    <p className="text-base sm:text-lg font-bold text-slate-900 whitespace-nowrap">{value}</p>
                   </div>
                 </CardContent>
               </Card>
