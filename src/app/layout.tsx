@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/SessionProvider";
@@ -19,6 +19,24 @@ export const metadata: Metadata = {
   description:
     "Plan your perfect bike trip. Manage GPX routes, track elevation, find points of interest, and prepare for any adventure.",
   keywords: ["bike", "cycling", "trip planner", "GPX", "route planning"],
+  applicationName: "Senchy",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  // Permet l'ajout à l'écran d'accueil iOS en mode plein écran
+  appleWebApp: {
+    capable: true,
+    title: "Senchy",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#9AAB92",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default async function RootLayout({
