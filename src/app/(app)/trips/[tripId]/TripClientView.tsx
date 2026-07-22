@@ -291,6 +291,9 @@ export function TripClientView({
       {/* ── Left panel ────────────────────────────────────────────── */}
       <aside className="absolute top-3 left-3 h-[calc(100%-1.5rem)] w-[360px] bg-white flex flex-col overflow-hidden shadow-xl z-10 rounded-2xl [transform:translateZ(0)]">
 
+        {/* Contenu défilant : l'en-tête défile, le sélecteur Segments/Nuits reste collé en haut */}
+        <div className="flex-1 overflow-y-auto">
+
         {/* Header */}
         <div className="px-5 pt-4 pb-4">
           <div className="flex items-center justify-between mb-3">
@@ -357,8 +360,8 @@ export function TripClientView({
           ))}
         </div>
 
-        {/* ── Sun / Moon toggle ──────────────────────────────────── */}
-        <div className="px-5 py-3">
+        {/* ── Sun / Moon toggle (reste collé en haut au scroll) ──── */}
+        <div className="sticky top-0 z-20 bg-white px-5 py-3">
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
               onClick={() => setPanel("segments")}
@@ -386,9 +389,6 @@ export function TripClientView({
             </button>
           </div>
         </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
 
           {panel === "segments" && (
             <div className="px-5 py-4 border-b border-slate-100">
