@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react"
 import { Bike, Map, Plus, LogOut, X, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { CreateTripModal } from "@/components/EditTripModal"
 
 interface SidebarUser {
   name?: string | null
@@ -18,7 +19,6 @@ interface SidebarProps {
 
 const navItems = [
   { href: "/dashboard", label: "Mes voyages", icon: Map },
-  { href: "/trips/new", label: "Nouveau voyage", icon: Plus },
 ]
 
 export function Sidebar({ user }: SidebarProps) {
@@ -61,6 +61,16 @@ export function Sidebar({ user }: SidebarProps) {
             </Link>
           )
         })}
+
+        <CreateTripModal>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors w-full text-slate-300 hover:text-white hover:bg-slate-700"
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            Nouveau voyage
+          </button>
+        </CreateTripModal>
       </nav>
 
       {/* User info */}

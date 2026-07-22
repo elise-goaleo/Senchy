@@ -107,7 +107,7 @@ function ImagePositioner({
 
 // ── Modal form ────────────────────────────────────────────────────────────────
 
-function ModalForm({ trip, onClose }: { trip: TripEditData; onClose: () => void }) {
+function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: TripEditData; onClose: () => void }) {
   const router = useRouter()
 
   const [name,        setName]        = useState(trip.name)
@@ -151,6 +151,42 @@ function ModalForm({ trip, onClose }: { trip: TripEditData; onClose: () => void 
     setIsLoading(true)
 
     try {
+      // ── Création ──────────────────────────────────────────────────────────
+      if (mode === "create") {
+        const createRes = await fetch("/api/trips", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            name:        name.trim(),
+            description: description.trim() || undefined,
+            startDate:   startDate || null,
+            endDate:     endDate   || null,
+          }),
+        })
+        if (!createRes.ok) {
+          const d = await createRes.json()
+          setError(d.error ?? "Erreur lors de la création.")
+          return
+        }
+        const created = await createRes.json()
+
+        // Photo de couverture (optionnelle) — même flux que l'édition
+        if (coverFile) {
+          await fetch(`/api/trips/${created.id}`, {
+            method:  "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ coverImagePosition: `${Math.round(position.x)}% ${Math.round(position.y)}%` }),
+          })
+          const formData = new FormData()
+          formData.append("cover", coverFile)
+          await fetch(`/api/trips/${created.id}`, { method: "PATCH", body: formData })
+        }
+
+        router.push(`/trips/${created.id}`)
+        return
+      }
+
+      // ── Édition ───────────────────────────────────────────────────────────
       // 1 — Metadata
       const metaRes = await fetch(`/api/trips/${trip.id}`, {
         method:  "PATCH",
@@ -302,7 +338,7 @@ function ModalForm({ trip, onClose }: { trip: TripEditData; onClose: () => void 
       {/* Actions */}
       <div className="flex gap-3 pt-1">
         <Button type="submit" className="flex-1" isLoading={isLoading}>
-          Enregistrer
+          {mode === "create" ? "Créer le voyage" : "Enregistrer"}
         </Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
           Annuler
@@ -312,48 +348,62 @@ function ModalForm({ trip, onClose }: { trip: TripEditData; onClose: () => void 
   )
 }
 
-// ── Exported component ────────────────────────────────────────────────────────
+// ── Modale partagée (création / édition) ──────────────────────────────────────
 
-export function EditTripModal({ trip }: { trip: TripEditData }) {
-  const [open,    setOpen]    = useState(false)
+function TripModalPortal({
+  mode, trip, title, open, onClose,
+}: {
+  mode:    "create" | "edit"
+  trip:    TripEditData
+  title:   string
+  open:    boolean
+  onClose: () => void
+}) {
   const [mounted, setMounted] = useState(false)
-
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [open])
+  }, [open, onClose])
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : ""
     return () => { document.body.style.overflow = "" }
   }, [open])
 
-  const overlay = (
+  if (!mounted || !open) return null
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">Modifier le voyage</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <button
-            onClick={() => setOpen(false)}
+            onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="px-6 py-5">
-          <ModalForm trip={trip} onClose={() => setOpen(false)} />
+          <ModalForm mode={mode} trip={trip} onClose={onClose} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
+}
 
+// ── Exported components ───────────────────────────────────────────────────────
+
+export function EditTripModal({ trip }: { trip: TripEditData }) {
+  const [open, setOpen] = useState(false)
   return (
     <>
       <button
@@ -363,8 +413,23 @@ export function EditTripModal({ trip }: { trip: TripEditData }) {
       >
         <Pencil className="h-3.5 w-3.5" />
       </button>
+      <TripModalPortal mode="edit" trip={trip} title="Modifier le voyage" open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
 
-      {mounted && open ? createPortal(overlay, document.body) : null}
+const BLANK_TRIP: TripEditData = {
+  id: "", name: "", description: null,
+  startDate: null, endDate: null, coverImageUrl: null, coverImagePosition: null,
+}
+
+/** Ouvre la même modale que l'édition, en mode création. `children` sert de déclencheur. */
+export function CreateTripModal({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <span className="contents" onClick={() => setOpen(true)}>{children}</span>
+      <TripModalPortal mode="create" trip={BLANK_TRIP} title="Nouveau voyage" open={open} onClose={() => setOpen(false)} />
     </>
   )
 }

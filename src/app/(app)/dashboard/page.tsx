@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import { TripCard } from "@/components/TripCard"
+import { CreateTripModal } from "@/components/EditTripModal"
 import { Plus, Map } from "lucide-react"
 
 export const metadata = {
@@ -39,12 +39,12 @@ export default async function DashboardPage() {
               : `${trips.length} voyage${trips.length > 1 ? "s" : ""}`}
           </p>
         </div>
-        <Link href="/trips/new">
+        <CreateTripModal>
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
             Nouveau voyage
           </Button>
-        </Link>
+        </CreateTripModal>
       </div>
 
       {/* Empty state */}
@@ -60,12 +60,12 @@ export default async function DashboardPage() {
             Créez votre premier voyage pour commencer à organiser vos itinéraires
             à vélo, en train et à pied.
           </p>
-          <Link href="/trips/new">
+          <CreateTripModal>
             <Button size="lg" className="gap-2">
               <Plus className="h-4 w-4" />
               Créer votre premier voyage
             </Button>
-          </Link>
+          </CreateTripModal>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">

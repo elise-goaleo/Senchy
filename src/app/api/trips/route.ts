@@ -7,6 +7,8 @@ import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
 const createTripSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(2000).optional(),
+  startDate: z.string().nullable().optional(), // "YYYY-MM-DD"
+  endDate: z.string().nullable().optional(),
 })
 
 // ─── GET /api/trips ───────────────────────────────────────────────────────────
@@ -65,6 +67,8 @@ export async function POST(request: Request): Promise<Response> {
         userId: user.id,
         name: parsed.data.name,
         description: parsed.data.description,
+        startDate: parsed.data.startDate ? new Date(parsed.data.startDate + "T12:00:00Z") : null,
+        endDate: parsed.data.endDate ? new Date(parsed.data.endDate + "T12:00:00Z") : null,
       },
     })
 
