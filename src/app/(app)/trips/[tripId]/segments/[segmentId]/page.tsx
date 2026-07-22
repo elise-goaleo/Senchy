@@ -124,7 +124,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
       : "outline"
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto overflow-x-hidden">
       {/* Breadcrumb (desktop) */}
       <div className="hidden lg:flex items-center gap-2 text-sm text-slate-500 mb-6">
         <Link href="/dashboard" className="hover:text-slate-900 transition-colors">

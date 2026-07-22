@@ -119,7 +119,7 @@ export function SegmentNotes({ segmentId, initialNotes }: Props) {
         <button
           onClick={openEditor}
           className={cn(
-            "w-full text-left rounded-xl bg-slate-50 hover:bg-slate-100 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap transition-colors",
+            "w-full text-left rounded-xl bg-slate-50 hover:bg-slate-100 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap break-words transition-colors",
           )}
         >
           {notes}
