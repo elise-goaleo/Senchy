@@ -277,10 +277,10 @@ export default async function SegmentDetailPage({ params }: PageProps) {
           {/* Elevation profile */}
           {elevPoints.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
                 <CardTitle className="text-base">Profil altimétrique</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
                 <ElevationChart points={elevPoints} />
               </CardContent>
             </Card>
@@ -289,12 +289,12 @@ export default async function SegmentDetailPage({ params }: PageProps) {
           {/* Gradient analysis */}
           {steepSections.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
                 <CardTitle className="text-base">
                   Sections raides (&gt; 5%)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -337,7 +337,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
           {/* Travel time calculator */}
           {segment.distanceM != null && segment.distanceM > 0 && (
             <Card>
-              <CardContent className="pt-5">
+              <CardContent className="p-4 sm:px-6 sm:pt-5 sm:pb-6">
                 <TravelTimeCalculator distanceM={segment.distanceM} />
               </CardContent>
             </Card>
@@ -348,7 +348,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
       {/* Train / Walking content */}
       {!isGpx && (
         <Card>
-          <CardContent className="pt-6 space-y-4">
+          <CardContent className="p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-4 text-slate-700">
               {segment.type === "train" ? (
                 <Train className="h-8 w-8 text-blue-500 shrink-0" />
@@ -396,7 +396,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
 
       {/* Notes / commentaires */}
       <Card>
-        <CardContent className="pt-5 pb-5">
+        <CardContent className="p-4 sm:px-6 sm:pt-5 sm:pb-5">
           <SegmentNotes segmentId={params.segmentId} initialNotes={segment.notes ?? null} />
         </CardContent>
       </Card>
