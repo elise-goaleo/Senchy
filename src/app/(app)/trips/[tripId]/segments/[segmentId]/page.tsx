@@ -153,10 +153,10 @@ export default async function SegmentDetailPage({ params }: PageProps) {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-slate-900">{segmentLabel}</h1>
+          <div className="mb-2">
             <Badge variant={typeBadgeVariant}>{typeLabel}</Badge>
           </div>
+          <h1 className="text-2xl font-bold text-slate-900">{segmentLabel}</h1>
           {segment.origin && segment.destination && (
             <div className="flex items-center gap-2 text-slate-500">
               <span>{segment.origin}</span>
@@ -192,6 +192,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               filename={segmentLabel}
             />
           )}
+          <DeleteSegmentButton segmentId={segment.id} tripId={params.tripId} />
           <EditSegmentModal
             segment={{
               id:          segment.id,
@@ -205,7 +206,6 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               komootUrl:   segment.komootUrl ?? null,
             }}
           />
-          <DeleteSegmentButton segmentId={segment.id} tripId={params.tripId} />
         </div>
       </div>
 

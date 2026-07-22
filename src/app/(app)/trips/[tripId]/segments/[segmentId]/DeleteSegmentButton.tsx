@@ -56,11 +56,12 @@ export function DeleteSegmentButton({ segmentId, tripId }: DeleteSegmentButtonPr
     <Button
       variant="outline"
       size="sm"
-      className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+      className="w-8 p-0 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
       onClick={() => setConfirm(true)}
+      aria-label="Supprimer le segment"
+      title="Supprimer"
     >
-      <Trash2 className="h-3.5 w-3.5" />
-      Supprimer
+      <Trash2 className="h-4 w-4" />
     </Button>
   )
 }
