@@ -4,6 +4,7 @@ import { db } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import { TripCard } from "@/components/TripCard"
 import { CreateTripModal } from "@/components/EditTripModal"
+import { CollapsiblePastTrips } from "@/components/CollapsiblePastTrips"
 import { Plus, Map } from "lucide-react"
 
 export const metadata = {
@@ -26,6 +27,32 @@ export default async function DashboardPage() {
       },
     },
   })
+
+  // Classement à venir / passés : un voyage est « passé » si sa date de fin
+  // (ou de début à défaut) est antérieure à aujourd'hui. Les voyages sans date
+  // sont considérés « à venir ».
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const refDate = (t: (typeof trips)[number]) => t.endDate ?? t.startDate
+
+  const upcomingTrips = trips
+    .filter((t) => { const d = refDate(t); return !d || d >= today })
+    .sort((a, b) => {
+      const da = a.startDate ?? a.endDate
+      const db = b.startDate ?? b.endDate
+      if (!da && !db) return 0
+      if (!da) return 1   // sans date → en dernier
+      if (!db) return -1
+      return da.getTime() - db.getTime()   // le plus proche en premier
+    })
+
+  const pastTrips = trips
+    .filter((t) => { const d = refDate(t); return d && d < today })
+    .sort((a, b) => {
+      const da = a.endDate ?? a.startDate
+      const db = b.endDate ?? b.startDate
+      return (db?.getTime() ?? 0) - (da?.getTime() ?? 0)   // le plus récent en premier
+    })
 
   return (
     <div className="p-6 lg:p-8">
@@ -68,11 +95,24 @@ export default async function DashboardPage() {
           </CreateTripModal>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
-          ))}
-        </div>
+        <>
+          {/* Voyages à venir */}
+          <section>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Voyages à venir</h2>
+            {upcomingTrips.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {upcomingTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">Aucun voyage à venir.</p>
+            )}
+          </section>
+
+          {/* Voyages passés (repliable) */}
+          {pastTrips.length > 0 && <CollapsiblePastTrips trips={pastTrips} />}
+        </>
       )}
     </div>
   )
