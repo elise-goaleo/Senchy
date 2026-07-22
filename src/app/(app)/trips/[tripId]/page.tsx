@@ -62,11 +62,29 @@ export default async function TripDetailPage({ params }: PageProps) {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
+  // NB: on sélectionne uniquement les champs nécessaires. En particulier on
+  // exclut `gpxRaw` (GPX brut, jamais envoyé au client — servi à part par
+  // /api/segments/[id]/gpx) et `coverImageUrl` (non utilisé ici) : sinon la
+  // réponse dépasse la limite de 5 Mo d'Accelerate sur les gros voyages.
   const trip = await db.trip.findUnique({
     where: { id: params.tripId },
-    include: {
-      segments:  { orderBy: { sortOrder: "asc" } },
-      stopovers: { orderBy: { sortOrder: "asc" } },
+    select: {
+      id:          true,
+      userId:      true,
+      name:        true,
+      description: true,
+      stopovers: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true, sortOrder: true, date: true, endDate: true,
+          name: true, place: true, notes: true, platform: true, link: true,
+        },
+      },
+      segments: {
+        orderBy: { sortOrder: "asc" },
+        // uniquement ce dont healTransitSegments a besoin
+        select: { id: true, type: true, origin: true, destination: true, geojson: true },
+      },
     },
   })
 
@@ -80,6 +98,14 @@ export default async function TripDetailPage({ params }: PageProps) {
   const healedSegments = await db.segment.findMany({
     where: { tripId: params.tripId },
     orderBy: { sortOrder: "asc" },
+    // gpxRaw et notes exclus (non utilisés ici, et gpxRaw est volumineux → limite Accelerate)
+    select: {
+      id: true, type: true, name: true, geojson: true,
+      distanceM: true, elevationGainM: true, elevationLossM: true,
+      elevationPoints: true, durationMin: true, departureAt: true,
+      arrivalAt: true, origin: true, destination: true,
+      startLat: true, startLon: true, komootUrl: true,
+    },
   })
 
   const totalDistanceM  = healedSegments.reduce((s, seg) => s + (seg.distanceM      ?? 0), 0)
