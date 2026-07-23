@@ -19,7 +19,7 @@ import { exportTripToExcel } from "@/hooks/useExportTrip"
 import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
   Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
-  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet,
+  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -58,14 +58,15 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite" }
 const EMPTY_POIS: never[] = []
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike      className="h-4 w-4" />,
   train:   <Train     className="h-4 w-4" />,
   walking: <Footprints className="h-4 w-4" />,
   car:     <Car       className="h-4 w-4" />,
+  visit:   <Landmark  className="h-4 w-4" />,
 }
 
 const MODE_ORDER = ["gpx", "car", "train", "walking"]
@@ -135,6 +136,14 @@ export function TripClientView({
 
   // Geocode night addresses → moon markers on the map
   const stopoverMarkers = useStopoverMarkers(stopovers)
+
+  // Points à visiter (segments "visit" géocodés) → marqueurs sur la carte
+  const visitMarkers = useMemo(
+    () => orderedSegs
+      .filter((s) => s.type === "visit" && s.startLat != null && s.startLon != null)
+      .map((s) => ({ id: s.id, lat: s.startLat as number, lon: s.startLon as number, name: s.name, place: s.origin })),
+    [orderedSegs]
+  )
 
   // Default to (or fall back to) the first available type
   useEffect(() => {
@@ -263,6 +272,7 @@ export function TripClientView({
         onClose={() => setAddOpen(false)}
         tripId={tripId}
         titleLabel={isRoadtrip ? "Ajouter une étape" : "Ajouter un segment"}
+        tripType={tripType}
         segmentCount={orderedSegs.length}
         onAdded={(seg) => setOrderedSegs((prev) => prev.some((s) => s.id === seg.id) ? prev : [...prev, seg])}
       />
@@ -467,6 +477,7 @@ export function TripClientView({
             segments={mapSegments}
             pois={EMPTY_POIS}
             stopovers={stopoverMarkers}
+            visits={visitMarkers}
             selectedSegmentId={selectedId}
             onSegmentClick={handleSegmentClick}
             height="100%"
@@ -577,6 +588,15 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
+                {selected.type === "visit" && selected.origin && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[180px]">{selected.origin}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Lieu</p>
+                    </div>
+                  </div>
+                )}
                 {selected.departureAt && selected.arrivalAt && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <CalendarClock className="h-4 w-4 text-blue-400" />
@@ -594,7 +614,7 @@ export function TripClientView({
 
               {/* Actions */}
               <div className="flex items-center gap-2 shrink-0">
-                {selected.type !== "train" && selected.type !== "car" && (
+                {(selected.type === "gpx" || selected.type === "walking") && (
                   selected.komootUrl ? (
                     <a
                       href={selected.komootUrl}
@@ -611,20 +631,22 @@ export function TripClientView({
                     </div>
                   )
                 )}
-                <EditSegmentModal
-                  segment={{
-                    id:          selected.id,
-                    type:        selected.type,
-                    name:        selected.name,
-                    origin:      selected.origin,
-                    destination: selected.destination,
-                    durationMin: selected.durationMin,
-                    departureAt: selected.departureAt,
-                    arrivalAt:   selected.arrivalAt,
-                    komootUrl:   selected.komootUrl,
-                  }}
-                />
-                {selected.type !== "train" && selected.type !== "car" && (
+                {selected.type !== "visit" && (
+                  <EditSegmentModal
+                    segment={{
+                      id:          selected.id,
+                      type:        selected.type,
+                      name:        selected.name,
+                      origin:      selected.origin,
+                      destination: selected.destination,
+                      durationMin: selected.durationMin,
+                      departureAt: selected.departureAt,
+                      arrivalAt:   selected.arrivalAt,
+                      komootUrl:   selected.komootUrl,
+                    }}
+                  />
+                )}
+                {(selected.type === "gpx" || selected.type === "walking") && (
                   <Link href={`/trips/${tripId}/segments/${selected.id}`}>
                     <button className="flex items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 py-1.5 rounded-lg transition-colors">
                       Détail
@@ -632,7 +654,7 @@ export function TripClientView({
                     </button>
                   </Link>
                 )}
-                {(selected.type === "train" || selected.type === "car") && (
+                {(selected.type === "train" || selected.type === "car" || selected.type === "visit") && (
                   <button
                     onClick={() => {
                       if (confirm(`Supprimer ${isRoadtrip ? "l'étape" : "le segment"} "${selected.name ?? selected.origin + " → " + selected.destination}" ?`))

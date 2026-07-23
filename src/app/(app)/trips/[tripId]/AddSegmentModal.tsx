@@ -9,14 +9,14 @@ import { cn, formatDuration } from "@/lib/utils"
 import { StationAutocomplete } from "@/components/StationAutocomplete"
 import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
 import {
-  X, Upload, FileText, CheckCircle2, Loader2, Bike, Train, Footprints, Car,
+  X, Upload, FileText, CheckCircle2, Loader2, Bike, Train, Footprints, Car, Landmark,
 } from "lucide-react"
 import type { TripSegment } from "./TripClientView"
 import type { GeoJSON } from "geojson"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabType = "gpx" | "train" | "walking" | "car"
+type TabType = "gpx" | "train" | "walking" | "car" | "visit"
 
 interface Props {
   open:         boolean
@@ -24,6 +24,7 @@ interface Props {
   tripId:       string
   segmentCount: number
   titleLabel?:  string
+  tripType?:    "biketrip" | "roadtrip"
   onAdded:      (seg: TripSegment) => void
 }
 
@@ -548,6 +549,93 @@ function TransitForm({
   )
 }
 
+// ── Visit form ────────────────────────────────────────────────────────────────
+
+function VisitForm({
+  tripId, sortOrder, onAdded, onClose,
+}: { tripId: string; sortOrder: number; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  const [name, setName]           = useState("")
+  const [place, setPlace]         = useState("")
+  const [coords, setCoords]       = useState<AddressCoords | null>(null)
+  const [notes, setNotes]         = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError]         = useState<string | null>(null)
+  const [success, setSuccess]     = useState(false)
+
+  const isValid = name.trim().length > 0
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+    try {
+      const body: Record<string, unknown> = {
+        tripId, type: "visit", name: name.trim(), sortOrder,
+        place: place.trim() || undefined,
+        notes: notes.trim() || undefined,
+      }
+      if (coords) { body.lat = coords.lat; body.lon = coords.lon }
+
+      const res = await fetch("/api/segments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error ?? "Erreur lors de la création.")
+        return
+      }
+      const raw = await res.json()
+      setSuccess(true)
+      setTimeout(() => { onAdded(mapSegment(raw)); onClose() }, 700)
+    } catch {
+      setError("Une erreur inattendue s'est produite.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (success) return <SuccessScreen />
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <ErrorBox message={error} />}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="v-name">Nom du lieu <span className="text-red-500">*</span></Label>
+        <Input id="v-name" placeholder="Ex : Colisée, Musée du Louvre…" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="v-place">Adresse / lieu <span className="text-xs font-normal text-slate-400">(optionnel)</span></Label>
+        <AddressAutocomplete id="v-place" placeholder="Ex : Piazza del Colosseo, Rome" value={place} onChange={(v, c) => { setPlace(v); setCoords(c) }} />
+        <p className="text-xs text-slate-400">Renseigne une adresse pour afficher le lieu sur la carte.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="v-notes">Notes <span className="text-xs font-normal text-slate-400">(optionnel)</span></Label>
+        <textarea
+          id="v-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder="Horaires, billets, infos pratiques…"
+          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent resize-none"
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <Button type="submit" className="flex-1" isLoading={isLoading} disabled={!isValid}>
+          Ajouter la visite
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>Annuler</Button>
+      </div>
+    </form>
+  )
+}
+
 // ── Shared micro-components ───────────────────────────────────────────────────
 
 function SuccessScreen() {
@@ -574,20 +662,29 @@ const TYPE_COLORS: Record<TabType, string> = {
   train:   "#3b82f6",
   car:     "#8b5cf6",
   walking: "#f59e0b",
+  visit:   "#db2777",
 }
 
-const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
-  { id: "gpx",     label: "Trace GPX", icon: <Bike       className="h-4 w-4" /> },
-  { id: "train",   label: "Train",     icon: <Train      className="h-4 w-4" /> },
-  { id: "car",     label: "Voiture",   icon: <Car        className="h-4 w-4" /> },
-  { id: "walking", label: "À pied",    icon: <Footprints className="h-4 w-4" /> },
-]
+const TAB_DEFS: Record<TabType, { label: string; icon: React.ReactNode }> = {
+  gpx:     { label: "Trace GPX", icon: <Bike       className="h-4 w-4" /> },
+  train:   { label: "Train",     icon: <Train      className="h-4 w-4" /> },
+  car:     { label: "Voiture",   icon: <Car        className="h-4 w-4" /> },
+  walking: { label: "À pied",    icon: <Footprints className="h-4 w-4" /> },
+  visit:   { label: "Visite",    icon: <Landmark   className="h-4 w-4" /> },
+}
 
-export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, onAdded }: Props) {
-  const [activeTab, setActiveTab] = useState<TabType>("gpx")
+// Ordre des onglets selon le type de voyage
+const TAB_ORDER: Record<"biketrip" | "roadtrip", TabType[]> = {
+  biketrip: ["gpx", "train", "car", "walking", "visit"],
+  roadtrip: ["car", "train", "walking", "gpx", "visit"],
+}
 
-  // Reset tab when re-opened
-  useEffect(() => { if (open) setActiveTab("gpx") }, [open])
+export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, tripType = "biketrip", onAdded }: Props) {
+  const tabs = TAB_ORDER[tripType]
+  const [activeTab, setActiveTab] = useState<TabType>(tabs[0])
+
+  // Reset tab when re-opened (premier onglet selon le type de voyage)
+  useEffect(() => { if (open) setActiveTab(tabs[0]) }, [open, tabs])
 
   // Escape key
   useEffect(() => {
@@ -626,20 +723,21 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-1 px-6 pt-4 pb-0">
-          {TABS.map((tab) => {
-            const active = activeTab === tab.id
+          {tabs.map((id) => {
+            const active = activeTab === id
+            const def = TAB_DEFS[id]
             return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={active ? { backgroundColor: TYPE_COLORS[tab.id] + "20", color: TYPE_COLORS[tab.id] } : undefined}
+                key={id}
+                onClick={() => setActiveTab(id)}
+                style={active ? { backgroundColor: TYPE_COLORS[id] + "20", color: TYPE_COLORS[id] } : undefined}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   active ? "font-semibold" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 )}
               >
-                {tab.icon}
-                {tab.label}
+                {def.icon}
+                {def.label}
               </button>
             )
           })}
@@ -661,6 +759,9 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
           )}
           {activeTab === "walking" && (
             <WalkingForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+          )}
+          {activeTab === "visit" && (
+            <VisitForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
           )}
         </div>
         </div>

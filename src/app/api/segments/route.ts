@@ -51,6 +51,17 @@ const gpxBareSchema = z.object({
   sortOrder:   z.number().int().min(0),
 })
 
+const visitSegmentSchema = z.object({
+  tripId:    z.string().min(1),
+  type:      z.literal("visit"),
+  name:      z.string().min(1).max(200),
+  place:     z.string().max(300).optional(),   // adresse / lieu
+  lat:       z.number().min(-90).max(90).optional(),
+  lon:       z.number().min(-180).max(180).optional(),
+  notes:     z.string().max(2000).optional(),
+  sortOrder: z.number().int().min(0),
+})
+
 const transitSegmentSchema = z.object({
   tripId:      z.string().min(1),
   name:        z.string().max(200).optional(),
@@ -186,6 +197,31 @@ export async function POST(request: Request): Promise<Response> {
           tripId, type: "gpx", name: name ?? null, sortOrder,
           departureAt: departureAt ? new Date(departureAt) : null,
           komootUrl:   komootUrl || null,
+        },
+      })
+      return Response.json(segment, { status: 201 })
+    }
+
+    // ── Visite (point à visiter — pas de trajet) ──────────────────────────────
+    if (typeof body === "object" && body !== null && (body as Record<string, unknown>).type === "visit") {
+      const parsed = visitSegmentSchema.safeParse(body)
+      if (!parsed.success) {
+        return Response.json(
+          { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+          { status: 400 }
+        )
+      }
+      const { tripId, name, place, lat, lon, notes, sortOrder } = parsed.data
+      try { await requireTripOwnership(tripId, user.id) } catch (err) {
+        if (err instanceof Response) return err; throw err
+      }
+      const segment = await db.segment.create({
+        data: {
+          tripId, type: "visit", name, sortOrder,
+          origin:   place ?? null,
+          notes:    notes ?? null,
+          startLat: lat ?? null,
+          startLon: lon ?? null,
         },
       })
       return Response.json(segment, { status: 201 })

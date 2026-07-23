@@ -69,6 +69,17 @@ function moonIcon() {
   })
 }
 
+function landmarkIcon() {
+  return L.divIcon({
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:#db2777;border:2px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+    </div>`,
+    className: "",
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+  })
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TripMapProps {
@@ -97,6 +108,13 @@ interface TripMapProps {
     date: string
     platform: "booking" | "airbnb" | null
     link: string | null
+  }>
+  visits?: Array<{
+    id: string
+    lat: number
+    lon: number
+    name: string | null
+    place: string | null
   }>
   selectedSegmentId?: string | null
   onSegmentClick?: (id: string) => void
@@ -167,6 +185,7 @@ export default function TripMap({
   segments,
   pois,
   stopovers = [],
+  visits = [],
   selectedSegmentId,
   onSegmentClick,
   height = "100%",
@@ -296,6 +315,17 @@ export default function TripMap({
           </Marker>
         )
       })}
+
+      {visits.map((v) => (
+        <Marker key={`visit-${v.id}`} position={[v.lat, v.lon]} icon={landmarkIcon()}>
+          <Popup>
+            <div className="text-sm" style={{ minWidth: 150 }}>
+              <p className="font-medium text-slate-900">{v.name ?? "Visite"}</p>
+              {v.place && <p className="text-slate-500 text-xs mt-1">{v.place}</p>}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   )
 }

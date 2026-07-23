@@ -20,19 +20,20 @@ import { CSS } from "@dnd-kit/utilities"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn, formatDuration } from "@/lib/utils"
-import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon } from "lucide-react"
+import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon, Landmark } from "lucide-react"
 import type { TripSegment } from "@/app/(app)/trips/[tripId]/TripClientView"
 import type { Stopover } from "@/components/StopoversPanel"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture" }
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike       className="h-3.5 w-3.5" />,
   train:   <Train      className="h-3.5 w-3.5" />,
   walking: <Footprints className="h-3.5 w-3.5" />,
   car:     <Car        className="h-3.5 w-3.5" />,
+  visit:   <Landmark   className="h-3.5 w-3.5" />,
 }
 
 function segmentLabel(seg: TripSegment) {
@@ -160,6 +161,9 @@ function SortableItem({
                 <span className="text-xs text-slate-400 flex items-center gap-0.5">
                   <Clock className="h-3 w-3" />{formatDuration(seg.durationMin)}
                 </span>
+              )}
+              {seg.type === "visit" && seg.origin && (
+                <span className="text-xs text-slate-400 truncate">{seg.origin}</span>
               )}
             </div>
           </div>
