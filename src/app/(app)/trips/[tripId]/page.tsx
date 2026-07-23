@@ -72,6 +72,7 @@ export default async function TripDetailPage({ params }: PageProps) {
       id:          true,
       userId:      true,
       name:        true,
+      type:        true,
       description: true,
       stopovers: {
         orderBy: { sortOrder: "asc" },
@@ -147,6 +148,7 @@ export default async function TripDetailPage({ params }: PageProps) {
     <TripClientView
       tripId={trip.id}
       tripName={trip.name}
+      tripType={trip.type === "roadtrip" ? "roadtrip" : "biketrip"}
       tripDescription={trip.description}
       segments={segments}
       initialStopovers={stopovers}

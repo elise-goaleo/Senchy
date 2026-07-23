@@ -64,6 +64,7 @@ model Trip {
   id             String    @id @default(cuid())
   userId         String    @map("user_id")
   name           String
+  type           String    @default("biketrip") // 'biketrip' | 'roadtrip'
   description    String?
   startDate      DateTime? @map("start_date") @db.Date
   endDate        DateTime? @map("end_date") @db.Date

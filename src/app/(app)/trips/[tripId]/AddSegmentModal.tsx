@@ -23,6 +23,7 @@ interface Props {
   onClose:      () => void
   tripId:       string
   segmentCount: number
+  titleLabel?:  string
   onAdded:      (seg: TripSegment) => void
 }
 
@@ -582,7 +583,7 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "walking", label: "À pied",    icon: <Footprints className="h-4 w-4" /> },
 ]
 
-export function AddSegmentModal({ open, onClose, tripId, segmentCount, onAdded }: Props) {
+export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, onAdded }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>("gpx")
 
   // Reset tab when re-opened
@@ -614,7 +615,7 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, onAdded }
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-0">
-          <h2 className="text-lg font-semibold text-slate-900">Ajouter un segment</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{titleLabel ?? "Ajouter un segment"}</h2>
           <button
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"

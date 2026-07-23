@@ -12,6 +12,7 @@ import { useStopoverMarkers } from "@/hooks/useStopoverMarkers"
 import { AddSegmentModal } from "./AddSegmentModal"
 import { EditSegmentModal } from "./segments/[segmentId]/EditSegmentModal"
 import { Button } from "@/components/ui/button"
+import { TRIP_TYPE_LABELS, type TripType } from "@/components/EditTripModal"
 import { cn, formatDuration } from "@/lib/utils"
 import { ElevationChart } from "@/components/charts/ElevationChart"
 import { exportTripToExcel } from "@/hooks/useExportTrip"
@@ -46,6 +47,7 @@ export interface TripSegment {
 interface Props {
   tripId: string
   tripName: string
+  tripType: TripType
   tripDescription: string | null
   segments: TripSegment[]
   initialStopovers: Stopover[]
@@ -83,11 +85,15 @@ function segmentLabel(seg: TripSegment) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TripClientView({
-  tripId, tripName, tripDescription,
+  tripId, tripName, tripType, tripDescription,
   segments,
   initialStopovers,
 }: Props) {
   const router = useRouter()
+  const isRoadtrip = tripType === "roadtrip"
+  // Libellés selon le type : « étape » (roadtrip) ou « segment » (biketrip)
+  const stepWord = isRoadtrip ? "étape" : "segment"
+  const StepsWord = isRoadtrip ? "Étapes" : "Segments"
   const [selectedId,      setSelectedId]      = useState<string | null>(null)
   const [orderedSegs,     setOrderedSegs]     = useState(segments)
   const [stopovers,       setStopovers]       = useState<Stopover[]>(initialStopovers)
@@ -256,6 +262,7 @@ export function TripClientView({
         open={addOpen}
         onClose={() => setAddOpen(false)}
         tripId={tripId}
+        titleLabel={isRoadtrip ? "Ajouter une étape" : "Ajouter un segment"}
         segmentCount={orderedSegs.length}
         onAdded={(seg) => setOrderedSegs((prev) => prev.some((s) => s.id === seg.id) ? prev : [...prev, seg])}
       />
@@ -305,11 +312,17 @@ export function TripClientView({
             </button>
           </div>
           <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            {isRoadtrip ? <Car className="h-3 w-3 text-[#8b5cf6]" /> : <Bike className="h-3 w-3 text-[#5F7F6F]" />}
+            {TRIP_TYPE_LABELS[tripType]}
+          </div>
           {tripDescription && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{tripDescription}</p>
           )}
         </div>
 
+        {/* km + dénivelé cumulés — masqués pour un roadtrip */}
+        {!isRoadtrip && (<>
         {/* Distance filter chips — break the cumulative distance down by type */}
         {presentModes.length > 0 && (
           <div className="px-5 pb-3 flex items-center gap-1.5 flex-wrap">
@@ -350,6 +363,7 @@ export function TripClientView({
             </div>
           ))}
         </div>
+        </>)}
 
         {/* ── Sun / Moon toggle (reste collé en haut au scroll) ──── */}
         <div className="sticky top-0 z-20 bg-white px-5 py-3">
@@ -364,7 +378,7 @@ export function TripClientView({
               )}
             >
               <Sun className="h-4 w-4" />
-              Segments
+              {StepsWord}
             </button>
             <button
               onClick={() => setPanel("stopovers")}
@@ -385,7 +399,7 @@ export function TripClientView({
             <div className="px-5 py-4 border-b border-slate-100">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Segments ({segments.length})
+                  {StepsWord} ({segments.length})
                 </h2>
                 <button
                   onClick={() => setAddOpen(true)}
@@ -399,10 +413,10 @@ export function TripClientView({
               {orderedSegs.length === 0 ? (
                 <div className="text-center py-6">
                   <Route className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">Aucun segment</p>
+                  <p className="text-sm text-slate-400">{isRoadtrip ? "Aucune étape" : "Aucun segment"}</p>
                   <Button size="sm" className="mt-3 gap-1.5" onClick={() => setAddOpen(true)}>
                     <Plus className="h-3.5 w-3.5" />
-                    Ajouter un segment
+                    {isRoadtrip ? "Ajouter une étape" : "Ajouter un segment"}
                   </Button>
                 </div>
               ) : (
@@ -435,7 +449,7 @@ export function TripClientView({
           <div className="border-t border-slate-100 px-5 py-4">
             <Button className="w-full gap-2" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
-              Ajouter un segment
+              {isRoadtrip ? "Ajouter une étape" : "Ajouter un segment"}
             </Button>
           </div>
         )}
@@ -464,11 +478,13 @@ export function TripClientView({
             <Route className="h-16 w-16 text-slate-300 mb-4" />
             <p className="text-slate-500 font-medium mb-2 text-lg">Aucune trace GPS disponible</p>
             <p className="text-sm text-slate-400 mb-6">
-              Ajoutez un segment GPX pour afficher votre itinéraire sur la carte
+              {isRoadtrip
+                ? "Ajoutez une étape pour afficher votre itinéraire sur la carte"
+                : "Ajoutez un segment GPX pour afficher votre itinéraire sur la carte"}
             </p>
             <Button className="gap-2" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
-              Importer un fichier GPX
+              {isRoadtrip ? "Ajouter une étape" : "Importer un fichier GPX"}
             </Button>
           </div>
         )}
@@ -619,7 +635,7 @@ export function TripClientView({
                 {(selected.type === "train" || selected.type === "car") && (
                   <button
                     onClick={() => {
-                      if (confirm(`Supprimer le segment "${selected.name ?? selected.origin + " → " + selected.destination}" ?`))
+                      if (confirm(`Supprimer ${isRoadtrip ? "l'étape" : "le segment"} "${selected.name ?? selected.origin + " → " + selected.destination}" ?`))
                         handleDeleteSegment(selected.id)
                     }}
                     disabled={deletingId === selected.id}

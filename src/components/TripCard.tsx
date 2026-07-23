@@ -4,15 +4,16 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, TrendingUp, Map, Copy, Loader2, Bike, Footprints } from "lucide-react"
+import { Calendar, TrendingUp, Map, Copy, Loader2, Bike, Footprints, Car } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { EditTripModal, type TripEditData } from "@/components/EditTripModal"
+import { EditTripModal, TRIP_TYPE_LABELS, type TripEditData, type TripType } from "@/components/EditTripModal"
 import { DeleteTripButton } from "@/components/DeleteTripButton"
 
 interface TripCardProps {
   trip: {
     id:                  string
     name:                string
+    type:                string
     description:         string | null
     startDate:           Date | null
     endDate:             Date | null
@@ -60,9 +61,12 @@ export function TripCard({ trip }: TripCardProps) {
     }
   }).filter((m) => m.km > 0 || m.elev > 0)
 
+  const tripType: TripType = trip.type === "roadtrip" ? "roadtrip" : "biketrip"
+
   const editData: TripEditData = {
     id:                  trip.id,
     name:                trip.name,
+    type:                tripType,
     description:         trip.description,
     startDate:           trip.startDate ? trip.startDate.toISOString().slice(0, 10) : null,
     endDate:             trip.endDate   ? trip.endDate.toISOString().slice(0, 10)   : null,
@@ -93,6 +97,12 @@ export function TripCard({ trip }: TripCardProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         </div>
       </Link>
+
+      {/* Type pill — top left of cover */}
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm">
+        {tripType === "roadtrip" ? <Car className="h-3.5 w-3.5 text-[#8b5cf6]" /> : <Bike className="h-3.5 w-3.5 text-[#5F7F6F]" />}
+        {TRIP_TYPE_LABELS[tripType]}
+      </div>
 
       {/* Actions — top right of cover */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">

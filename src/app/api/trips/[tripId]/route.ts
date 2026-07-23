@@ -9,6 +9,7 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 const updateTripSchema = z.object({
   name:                z.string().min(1).max(200).optional(),
+  type:                z.enum(["biketrip", "roadtrip"]).optional(),
   description:         z.string().max(2000).nullable().optional(),
   startDate:           z.string().nullable().optional(), // "YYYY-MM-DD"
   endDate:             z.string().nullable().optional(),
@@ -97,12 +98,13 @@ export async function PATCH(
       )
     }
 
-    const { name, description, startDate, endDate, coverImagePosition } = parsed.data
+    const { name, type, description, startDate, endDate, coverImagePosition } = parsed.data
 
     const trip = await db.trip.update({
       where: { id: params.tripId },
       data: {
         ...(name                !== undefined && { name }),
+        ...(type                !== undefined && { type }),
         ...(description         !== undefined && { description }),
         ...(coverImagePosition  !== undefined && { coverImagePosition }),
         ...(startDate           !== undefined && {

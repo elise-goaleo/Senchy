@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createPortal } from "react-dom"
 import { useDropzone } from "react-dropzone"
-import { X, Pencil, Upload, ImageIcon, Check, Move, CalendarDays } from "lucide-react"
+import { X, Pencil, Upload, ImageIcon, Check, Move, CalendarDays, Bike, Car } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -13,14 +13,22 @@ import Image from "next/image"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type TripType = "biketrip" | "roadtrip"
+
 export interface TripEditData {
   id:                  string
   name:                string
+  type:                TripType
   description:         string | null
   startDate:           string | null   // "YYYY-MM-DD"
   endDate:             string | null
   coverImageUrl:       string | null
   coverImagePosition:  string | null   // "X% Y%"
+}
+
+export const TRIP_TYPE_LABELS: Record<TripType, string> = {
+  biketrip: "Bike trip",
+  roadtrip: "Road trip",
 }
 
 // ── Image positioner (drag to crop) ──────────────────────────────────────────
@@ -111,6 +119,7 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
   const router = useRouter()
 
   const [name,        setName]        = useState(trip.name)
+  const [type,        setType]        = useState<TripType>(trip.type)
   const [description, setDescription] = useState(trip.description ?? "")
   const [startDate,   setStartDate]   = useState(trip.startDate ?? "")
   const [endDate,     setEndDate]     = useState(trip.endDate ?? "")
@@ -158,6 +167,7 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
             name:        name.trim(),
+            type,
             description: description.trim() || undefined,
             startDate:   startDate || null,
             endDate:     endDate   || null,
@@ -193,6 +203,7 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           name:               name.trim(),
+          type,
           description:        description.trim() || null,
           startDate:          startDate || null,
           endDate:            endDate   || null,
@@ -248,6 +259,35 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
+
+      {/* Type de voyage */}
+      <div className="space-y-2">
+        <Label>Type de voyage</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: "biketrip" as const, label: TRIP_TYPE_LABELS.biketrip, Icon: Bike },
+            { value: "roadtrip" as const, label: TRIP_TYPE_LABELS.roadtrip, Icon: Car },
+          ]).map(({ value, label, Icon }) => {
+            const active = type === value
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setType(value)}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Cover image */}
       <div className="space-y-2">
@@ -419,7 +459,7 @@ export function EditTripModal({ trip }: { trip: TripEditData }) {
 }
 
 const BLANK_TRIP: TripEditData = {
-  id: "", name: "", description: null,
+  id: "", name: "", type: "biketrip", description: null,
   startDate: null, endDate: null, coverImageUrl: null, coverImagePosition: null,
 }
 
