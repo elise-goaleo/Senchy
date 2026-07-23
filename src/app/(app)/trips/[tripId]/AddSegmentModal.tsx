@@ -605,11 +605,12 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, onAdded }
   if (!open) return null
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-sm">
+      <div
+        className="flex min-h-full items-center justify-center p-4"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-0">
@@ -623,7 +624,7 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, onAdded }
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 px-6 pt-4 pb-0">
+        <div className="flex flex-wrap gap-1 px-6 pt-4 pb-0">
           {TABS.map((tab) => {
             const active = activeTab === tab.id
             return (
@@ -660,6 +661,7 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, onAdded }
           {activeTab === "walking" && (
             <WalkingForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
           )}
+        </div>
         </div>
       </div>
     </div>
