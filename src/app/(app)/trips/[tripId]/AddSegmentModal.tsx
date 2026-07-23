@@ -666,7 +666,7 @@ const TYPE_COLORS: Record<TabType, string> = {
 }
 
 const TAB_DEFS: Record<TabType, { label: string; icon: React.ReactNode }> = {
-  gpx:     { label: "Trace GPX", icon: <Bike       className="h-4 w-4" /> },
+  gpx:     { label: "Vélo",      icon: <Bike       className="h-4 w-4" /> },
   train:   { label: "Train",     icon: <Train      className="h-4 w-4" /> },
   car:     { label: "Voiture",   icon: <Car        className="h-4 w-4" /> },
   walking: { label: "À pied",    icon: <Footprints className="h-4 w-4" /> },
@@ -722,7 +722,7 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-1 px-6 pt-4 pb-0">
+        <div className="flex flex-nowrap gap-1 px-6 pt-4 pb-0 overflow-x-auto">
           {tabs.map((id) => {
             const active = activeTab === id
             const def = TAB_DEFS[id]
@@ -732,7 +732,7 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
                 onClick={() => setActiveTab(id)}
                 style={active ? { backgroundColor: TYPE_COLORS[id] + "20", color: TYPE_COLORS[id] } : undefined}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors shrink-0",
                   active ? "font-semibold" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 )}
               >
