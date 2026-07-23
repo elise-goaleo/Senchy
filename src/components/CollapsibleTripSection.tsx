@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 type TripCardTrip = React.ComponentProps<typeof TripCard>["trip"]
 
-export function CollapsiblePastTrips({ trips }: { trips: TripCardTrip[] }) {
+export function CollapsibleTripSection({ title, trips }: { title: string; trips: TripCardTrip[] }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -23,7 +23,7 @@ export function CollapsiblePastTrips({ trips }: { trips: TripCardTrip[] }) {
             open ? "" : "-rotate-90"
           )}
         />
-        <h2 className="text-lg font-semibold text-slate-900">Voyages passés</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <span className="text-sm text-slate-400">({trips.length})</span>
       </button>
 

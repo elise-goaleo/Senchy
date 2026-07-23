@@ -4,7 +4,7 @@ import { db } from "@/lib/db"
 import { Button } from "@/components/ui/button"
 import { TripCard } from "@/components/TripCard"
 import { CreateTripModal } from "@/components/EditTripModal"
-import { CollapsiblePastTrips } from "@/components/CollapsiblePastTrips"
+import { CollapsibleTripSection } from "@/components/CollapsibleTripSection"
 import { Plus, Map } from "lucide-react"
 
 export const metadata = {
@@ -28,22 +28,23 @@ export default async function DashboardPage() {
     },
   })
 
-  // Classement à venir / passés : un voyage est « passé » si sa date de fin
-  // (ou de début à défaut) est antérieure à aujourd'hui. Les voyages sans date
-  // sont considérés « à venir ».
+  // Classement :
+  //  - Brouillons : voyages sans aucune date
+  //  - À venir    : date de fin (ou de début à défaut) aujourd'hui ou plus tard
+  //  - Passés     : date de fin (ou de début à défaut) antérieure à aujourd'hui
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const refDate = (t: (typeof trips)[number]) => t.endDate ?? t.startDate
 
+  // Sans date — l'ordre du query (createdAt desc) est conservé
+  const draftTrips = trips.filter((t) => !refDate(t))
+
   const upcomingTrips = trips
-    .filter((t) => { const d = refDate(t); return !d || d >= today })
+    .filter((t) => { const d = refDate(t); return d && d >= today })
     .sort((a, b) => {
       const da = a.startDate ?? a.endDate
       const db = b.startDate ?? b.endDate
-      if (!da && !db) return 0
-      if (!da) return 1   // sans date → en dernier
-      if (!db) return -1
-      return da.getTime() - db.getTime()   // le plus proche en premier
+      return (da?.getTime() ?? 0) - (db?.getTime() ?? 0)   // le plus proche en premier
     })
 
   const pastTrips = trips
@@ -110,8 +111,11 @@ export default async function DashboardPage() {
             )}
           </section>
 
+          {/* Brouillons (repliable) — voyages sans date */}
+          {draftTrips.length > 0 && <CollapsibleTripSection title="Brouillons" trips={draftTrips} />}
+
           {/* Voyages passés (repliable) */}
-          {pastTrips.length > 0 && <CollapsiblePastTrips trips={pastTrips} />}
+          {pastTrips.length > 0 && <CollapsibleTripSection title="Voyages passés" trips={pastTrips} />}
         </>
       )}
     </div>
