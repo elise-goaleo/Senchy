@@ -88,10 +88,14 @@ export default async function SegmentDetailPage({ params }: PageProps) {
   if (segment.trip.userId !== session.user.id) notFound()
   if (segment.trip.id !== params.tripId) notFound()
 
-  const isGpx = segment.type === "gpx"
   const geojson = segment.geojson
     ? (segment.geojson as unknown as GeoJSON.FeatureCollection)
     : null
+
+  // Vélo et à pied ont une trace GPX : même contenu riche (carte, stats, profil).
+  // Le contenu simplifié (carte d'info) reste pour le train / la voiture, ou pour
+  // un segment vélo/à pied sans tracé.
+  const hasTrace = (segment.type === "gpx" || segment.type === "walking") && !!geojson
 
   const elevPoints = (
     Array.isArray(segment.elevationPoints)
@@ -211,8 +215,8 @@ export default async function SegmentDetailPage({ params }: PageProps) {
 
       <div className="space-y-6">
 
-      {/* GPX content */}
-      {isGpx && geojson && (
+      {/* Contenu riche — vélo & à pied (avec tracé) */}
+      {hasTrace && geojson && (
         <div className="space-y-6">
           {/* Map */}
           <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -345,8 +349,8 @@ export default async function SegmentDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Train / Walking content */}
-      {!isGpx && (
+      {/* Contenu simplifié — train / voiture, ou segment sans tracé */}
+      {!hasTrace && (
         <Card>
           <CardContent className="p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-4 text-slate-700">
