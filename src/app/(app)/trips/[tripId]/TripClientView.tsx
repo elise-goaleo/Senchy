@@ -152,15 +152,15 @@ export function TripClientView({
     setSelectedId((prev) => (prev === id ? null : id))
   }, [])
 
-  // Sur mobile, taper un segment vélo (gpx) dans la liste ouvre directement sa
-  // page détail (la carte de segment sélectionné est hors écran sur petit écran).
+  // Sur mobile, taper un segment vélo (gpx) ou à pied (walking) dans la liste ouvre
+  // directement sa page détail (la carte de segment sélectionné est hors écran sur petit écran).
   const handleSegmentSelect = useCallback((id: string) => {
     const isMobile =
       typeof window !== "undefined" &&
       window.matchMedia("(max-width: 767px)").matches
     if (isMobile) {
       const seg = orderedSegs.find((s) => s.id === id)
-      if (seg?.type === "gpx") {
+      if (seg?.type === "gpx" || seg?.type === "walking") {
         router.push(`/trips/${tripId}/segments/${id}`)
         return
       }
