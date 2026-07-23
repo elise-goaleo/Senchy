@@ -280,7 +280,7 @@ export function TripClientView({
       )}
 
       {/* ── Left panel ────────────────────────────────────────────── */}
-      <aside className="absolute top-3 left-3 h-[calc(100%-1.5rem)] w-[360px] bg-white flex flex-col overflow-hidden shadow-xl z-10 rounded-2xl [transform:translateZ(0)]">
+      <aside className="absolute top-3 left-0 right-0 mx-auto max-w-[calc(100%-1.5rem)] lg:left-3 lg:right-auto lg:mx-0 lg:max-w-none h-[calc(100%-1.5rem)] w-[360px] bg-white flex flex-col overflow-hidden shadow-xl z-10 rounded-2xl [transform:translateZ(0)]">
 
         {/* Contenu défilant : l'en-tête défile, le sélecteur Segments/Nuits reste collé en haut */}
         <div className="flex-1 overflow-y-auto">
