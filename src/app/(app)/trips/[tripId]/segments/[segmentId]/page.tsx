@@ -342,7 +342,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
           {segment.distanceM != null && segment.distanceM > 0 && (
             <Card>
               <CardContent className="p-4 sm:px-6 sm:pt-5 sm:pb-6">
-                <TravelTimeCalculator distanceM={segment.distanceM} />
+                <TravelTimeCalculator distanceM={segment.distanceM} mode={segment.type === "walking" ? "walking" : "cycling"} />
               </CardContent>
             </Card>
           )}

@@ -5,13 +5,32 @@ import { Clock } from "lucide-react"
 
 interface TravelTimeCalculatorProps {
   distanceM: number
+  mode?: "cycling" | "walking"
 }
 
-const PRESETS = [
-  { label: "Randonnée", speed: 12 },
-  { label: "Loisir", speed: 15 },
-  { label: "Sport", speed: 20 },
-]
+// Configuration par mode : vitesse par défaut, plage du curseur et presets
+const CONFIG = {
+  cycling: {
+    default: 15,
+    min: 5,
+    max: 30,
+    presets: [
+      { label: "Randonnée", speed: 12 },
+      { label: "Loisir", speed: 15 },
+      { label: "Sport", speed: 20 },
+    ],
+  },
+  walking: {
+    default: 5,
+    min: 2,
+    max: 8,
+    presets: [
+      { label: "Tranquille", speed: 4 },
+      { label: "Normal", speed: 5 },
+      { label: "Rapide", speed: 6 },
+    ],
+  },
+} as const
 
 function formatDuration(hours: number): string {
   const h = Math.floor(hours)
@@ -21,8 +40,9 @@ function formatDuration(hours: number): string {
   return `${h} h ${m} min`
 }
 
-export function TravelTimeCalculator({ distanceM }: TravelTimeCalculatorProps) {
-  const [speed, setSpeed] = useState(15)
+export function TravelTimeCalculator({ distanceM, mode = "cycling" }: TravelTimeCalculatorProps) {
+  const cfg = CONFIG[mode]
+  const [speed, setSpeed] = useState<number>(cfg.default)
 
   const distanceKm = distanceM / 1000
   const hours = distanceKm / speed
@@ -40,8 +60,8 @@ export function TravelTimeCalculator({ distanceM }: TravelTimeCalculatorProps) {
         </label>
         <input
           type="range"
-          min={5}
-          max={30}
+          min={cfg.min}
+          max={cfg.max}
           step={1}
           value={speed}
           onChange={(e) => setSpeed(Number(e.target.value))}
@@ -49,12 +69,12 @@ export function TravelTimeCalculator({ distanceM }: TravelTimeCalculatorProps) {
         />
         <input
           type="number"
-          min={5}
-          max={30}
+          min={cfg.min}
+          max={cfg.max}
           value={speed}
           onChange={(e) => {
             const v = Number(e.target.value)
-            if (v >= 5 && v <= 30) setSpeed(v)
+            if (v >= cfg.min && v <= cfg.max) setSpeed(v)
           }}
           className="w-16 text-center text-sm border border-slate-200 rounded-md py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
@@ -62,7 +82,7 @@ export function TravelTimeCalculator({ distanceM }: TravelTimeCalculatorProps) {
 
       {/* Presets */}
       <div className="flex gap-2">
-        {PRESETS.map((p) => (
+        {cfg.presets.map((p) => (
           <button
             key={p.label}
             onClick={() => setSpeed(p.speed)}
