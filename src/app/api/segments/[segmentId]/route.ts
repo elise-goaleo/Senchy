@@ -171,7 +171,16 @@ export async function PATCH(
     // (covers name changes, missing geojson on old segments, etc.)
     let geoUpdate: Record<string, unknown> = {}
 
-    if (segment.type !== "gpx") {
+    if (segment.type === "visit") {
+      // Point unique : met à jour les coordonnées à partir de l'adresse
+      const d = parsed.data
+      if (d.originLat != null && d.originLon != null) {
+        geoUpdate = { startLat: d.originLat, startLon: d.originLon }
+      } else if (d.origin !== undefined) {
+        const c = d.origin ? await geocode(d.origin) : null
+        geoUpdate = { startLat: c?.lat ?? null, startLon: c?.lon ?? null }
+      }
+    } else if (segment.type !== "gpx") {
       const d = parsed.data
       const effectiveOrigin      = d.origin      !== undefined ? d.origin      : segment.origin
       const effectiveDestination = d.destination !== undefined ? d.destination : segment.destination

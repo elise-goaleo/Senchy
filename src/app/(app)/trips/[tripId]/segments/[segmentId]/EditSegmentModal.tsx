@@ -26,6 +26,7 @@ export interface SegmentEditData {
   departureAt: string | null
   arrivalAt:   string | null
   komootUrl:   string | null
+  notes?:      string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ function ModalForm({
   const [arrivalAt, setArrivalAt]     = useState(toDatetimeLocal(segment.arrivalAt))
   const [durationMin, setDurationMin] = useState(segment.durationMin?.toString() ?? "")
   const [komootUrl, setKomootUrl]     = useState(segment.komootUrl ?? "")
+  const [notes, setNotes]             = useState(segment.notes ?? "")
   const [gpxFile, setGpxFile]         = useState<File | null>(null)
   const [isLoading, setIsLoading]     = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -107,7 +109,11 @@ function ModalForm({
         komootUrl: komootUrl.trim() || null,
       }
 
-      if (segment.type === "train") {
+      if (segment.type === "visit") {
+        body.origin = origin.trim() || null
+        body.notes  = notes.trim() || null
+        if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+      } else if (segment.type === "train") {
         body.origin      = origin.trim() || null
         body.destination = destination.trim() || null
         if (departureAt) body.departureAt = new Date(departureAt).toISOString()
@@ -181,18 +187,40 @@ function ModalForm({
 
       {/* Name */}
       <div className="space-y-2">
-        <Label htmlFor="m-name">Nom du segment</Label>
+        <Label htmlFor="m-name">{segment.type === "visit" ? "Nom du lieu" : "Nom du segment"}</Label>
         <Input
           id="m-name"
-          placeholder={segment.type === "train" ? "Ex : Lyon → Paris" : "Ex : Col du Galibier"}
+          placeholder={segment.type === "train" ? "Ex : Lyon → Paris" : segment.type === "visit" ? "Ex : Colisée, Musée du Louvre…" : "Ex : Col du Galibier"}
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={200}
         />
       </div>
 
-      {/* Date — GPX / walking */}
-      {segment.type !== "train" && (
+      {/* Visite — adresse + notes */}
+      {segment.type === "visit" && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="m-place">Adresse / lieu</Label>
+            <AddressAutocomplete id="m-place" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder="Ex : Piazza del Colosseo, Rome" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-notes">Notes</Label>
+            <textarea
+              id="m-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              placeholder="Horaires, billets, infos pratiques…"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent resize-none"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Date — GPX / walking / car */}
+      {segment.type !== "train" && segment.type !== "visit" && (
         <div className="space-y-2">
           <Label htmlFor="m-date">Date</Label>
           <Input id="m-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -343,7 +371,7 @@ export function EditSegmentModal({ segment }: { segment: SegmentEditData }) {
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">Modifier le segment</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{segment.type === "visit" ? "Modifier la visite" : "Modifier le segment"}</h2>
           <button
             onClick={() => setOpen(false)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"

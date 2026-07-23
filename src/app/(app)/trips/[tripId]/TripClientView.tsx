@@ -42,6 +42,7 @@ export interface TripSegment {
   startLat:  number | null
   startLon:  number | null
   komootUrl: string | null
+  notes:     string | null
 }
 
 interface Props {
@@ -631,21 +632,20 @@ export function TripClientView({
                     </div>
                   )
                 )}
-                {selected.type !== "visit" && (
-                  <EditSegmentModal
-                    segment={{
-                      id:          selected.id,
-                      type:        selected.type,
-                      name:        selected.name,
-                      origin:      selected.origin,
-                      destination: selected.destination,
-                      durationMin: selected.durationMin,
-                      departureAt: selected.departureAt,
-                      arrivalAt:   selected.arrivalAt,
-                      komootUrl:   selected.komootUrl,
-                    }}
-                  />
-                )}
+                <EditSegmentModal
+                  segment={{
+                    id:          selected.id,
+                    type:        selected.type,
+                    name:        selected.name,
+                    origin:      selected.origin,
+                    destination: selected.destination,
+                    durationMin: selected.durationMin,
+                    departureAt: selected.departureAt,
+                    arrivalAt:   selected.arrivalAt,
+                    komootUrl:   selected.komootUrl,
+                    notes:       selected.notes,
+                  }}
+                />
                 {(selected.type === "gpx" || selected.type === "walking") && (
                   <Link href={`/trips/${tripId}/segments/${selected.id}`}>
                     <button className="flex items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 py-1.5 rounded-lg transition-colors">

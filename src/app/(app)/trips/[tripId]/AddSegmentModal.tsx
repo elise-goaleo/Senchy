@@ -55,14 +55,31 @@ function mapSegment(raw: any): TripSegment {
     startLat:        raw.startLat  ?? null,
     startLon:        raw.startLon  ?? null,
     komootUrl:       raw.komootUrl ?? null,
+    notes:           raw.notes     ?? null,
+  }
+}
+
+// Libellés selon le type de voyage : « segment » (biketrip) ou « étape » (roadtrip)
+type SegWord = "segment" | "étape"
+function segLabels(word: SegWord) {
+  const e = word === "étape"
+  return {
+    name:         e ? "Nom de l'étape"                : "Nom du segment",
+    nameRequired: e ? "Le nom de l'étape est obligatoire." : "Le nom du segment est obligatoire.",
+    create:       e ? "Créer l'étape"                 : "Créer le segment",
+    createNoGpx:  e ? "Créer l'étape sans tracé"      : "Créer le segment sans tracé",
+    createWalk:   e ? "Créer l'étape à pied"          : "Créer le segment à pied",
+    creating:     e ? "Création de l'étape…"          : "Création du segment…",
+    added:        e ? "Étape ajoutée !"               : "Segment ajouté !",
   }
 }
 
 // ── GPX form ──────────────────────────────────────────────────────────────────
 
 function GpxForm({
-  tripId, sortOrder, onAdded, onClose,
-}: { tripId: string; sortOrder: number; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  tripId, sortOrder, word, onAdded, onClose,
+}: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  const L = segLabels(word)
   const [file, setFile]           = useState<File | null>(null)
   const [name, setName]           = useState("")
   const [date, setDate]           = useState("")
@@ -91,7 +108,7 @@ function GpxForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError("Le nom du segment est obligatoire."); return }
+    if (!name.trim()) { setError(L.nameRequired); return }
     setError(null)
     setUploading(true)
     setProgress(30)
@@ -142,7 +159,7 @@ function GpxForm({
     }
   }
 
-  if (success) return <SuccessScreen />
+  if (success) return <SuccessScreen word={word} />
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -172,13 +189,13 @@ function GpxForm({
               {isDragActive ? "Déposez votre fichier GPX" : "Glissez-déposez votre fichier GPX"}
             </p>
             <p className="text-sm text-slate-400">ou cliquez pour sélectionner — .gpx, max 10 Mo</p>
-            <span className="text-xs text-slate-300 mt-1">Optionnel — vous pouvez créer le segment sans tracé</span>
+            <span className="text-xs text-slate-300 mt-1">Optionnel — vous pouvez créer {word === "étape" ? "l'étape" : "le segment"} sans tracé</span>
           </div>
         )}
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="gpx-name">Nom du segment <span className="text-red-500">*</span></Label>
+        <Label htmlFor="gpx-name">{L.name} <span className="text-red-500">*</span></Label>
         <Input id="gpx-name" placeholder="Ex : Col du Galibier" value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} autoFocus />
       </div>
 
@@ -206,7 +223,7 @@ function GpxForm({
 
       <div className="flex gap-3">
         <Button type="submit" className="flex-1" disabled={!name.trim()} isLoading={uploading}>
-          {file ? "Importer le fichier GPX" : "Créer le segment sans tracé"}
+          {file ? "Importer le fichier GPX" : L.createNoGpx}
         </Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>Annuler</Button>
       </div>
@@ -217,8 +234,9 @@ function GpxForm({
 // ── Walking form ──────────────────────────────────────────────────────────────
 
 function WalkingForm({
-  tripId, sortOrder, onAdded, onClose,
-}: { tripId: string; sortOrder: number; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  tripId, sortOrder, word, onAdded, onClose,
+}: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  const L = segLabels(word)
   const [file, setFile]           = useState<File | null>(null)
   const [name, setName]           = useState("")
   const [origin, setOrigin]       = useState("")
@@ -244,7 +262,7 @@ function WalkingForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError("Le nom du segment est obligatoire."); return }
+    if (!name.trim()) { setError(L.nameRequired); return }
     setError(null)
     setUploading(true)
     setProgress(30)
@@ -294,7 +312,7 @@ function WalkingForm({
     }
   }
 
-  if (success) return <SuccessScreen />
+  if (success) return <SuccessScreen word={word} />
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -335,7 +353,7 @@ function WalkingForm({
 
       {/* Nom */}
       <div className="space-y-1.5">
-        <Label htmlFor="w-name">Nom du segment <span className="text-red-500">*</span></Label>
+        <Label htmlFor="w-name">{L.name} <span className="text-red-500">*</span></Label>
         <Input id="w-name" placeholder="Ex : Traversée du centre-ville"
           value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} autoFocus />
       </div>
@@ -370,7 +388,7 @@ function WalkingForm({
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
-            {file ? "Traitement du fichier GPX…" : "Création du segment…"}
+            {file ? "Traitement du fichier GPX…" : L.creating}
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -380,7 +398,7 @@ function WalkingForm({
 
       <div className="flex gap-3">
         <Button type="submit" className="flex-1" disabled={!isValid} isLoading={uploading}>
-          {file ? "Importer la trace GPX" : "Créer le segment à pied"}
+          {file ? "Importer la trace GPX" : L.createWalk}
         </Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={uploading}>Annuler</Button>
       </div>
@@ -391,8 +409,9 @@ function WalkingForm({
 // ── Transit form ──────────────────────────────────────────────────────────────
 
 function TransitForm({
-  tripId, type, sortOrder, onAdded, onClose,
-}: { tripId: string; type: "train" | "car"; sortOrder: number; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  tripId, type, sortOrder, word, onAdded, onClose,
+}: { tripId: string; type: "train" | "car"; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  const L = segLabels(word)
   const [name, setName]               = useState("")
   const [origin, setOrigin]           = useState("")
   const [destination, setDestination] = useState("")
@@ -466,14 +485,14 @@ function TransitForm({
     }
   }
 
-  if (success) return <SuccessScreen />
+  if (success) return <SuccessScreen word={word} />
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <ErrorBox message={error} />}
 
       <div className="space-y-1.5">
-        <Label htmlFor="t-name">Nom du segment (optionnel)</Label>
+        <Label htmlFor="t-name">{L.name} (optionnel)</Label>
         <Input id="t-name" placeholder={type === "train" ? "Ex : Lyon → Grenoble" : "Ex : Lyon → Marseille"} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </div>
 
@@ -541,7 +560,7 @@ function TransitForm({
 
       <div className="flex gap-3">
         <Button type="submit" className="flex-1" isLoading={isLoading} disabled={!isValid}>
-          Créer le segment
+          {L.create}
         </Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>Annuler</Button>
       </div>
@@ -552,8 +571,8 @@ function TransitForm({
 // ── Visit form ────────────────────────────────────────────────────────────────
 
 function VisitForm({
-  tripId, sortOrder, onAdded, onClose,
-}: { tripId: string; sortOrder: number; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+  tripId, sortOrder, word, onAdded, onClose,
+}: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
   const [name, setName]           = useState("")
   const [place, setPlace]         = useState("")
   const [coords, setCoords]       = useState<AddressCoords | null>(null)
@@ -596,7 +615,7 @@ function VisitForm({
     }
   }
 
-  if (success) return <SuccessScreen />
+  if (success) return <SuccessScreen word={word} />
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -638,11 +657,11 @@ function VisitForm({
 
 // ── Shared micro-components ───────────────────────────────────────────────────
 
-function SuccessScreen() {
+function SuccessScreen({ word = "segment" }: { word?: SegWord }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
       <CheckCircle2 className="h-12 w-12 text-emerald-500 mb-3" />
-      <p className="font-semibold text-slate-900">Segment ajouté !</p>
+      <p className="font-semibold text-slate-900">{segLabels(word).added}</p>
     </div>
   )
 }
@@ -681,6 +700,7 @@ const TAB_ORDER: Record<"biketrip" | "roadtrip", TabType[]> = {
 
 export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, tripType = "biketrip", onAdded }: Props) {
   const tabs = TAB_ORDER[tripType]
+  const word: SegWord = tripType === "roadtrip" ? "étape" : "segment"
   const [activeTab, setActiveTab] = useState<TabType>(tabs[0])
 
   // Reset tab when re-opened (premier onglet selon le type de voyage)
@@ -749,19 +769,19 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
         {/* Form */}
         <div className="px-6 py-5">
           {activeTab === "gpx" && (
-            <GpxForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+            <GpxForm tripId={tripId} sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
           {activeTab === "train" && (
-            <TransitForm tripId={tripId} type="train" sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+            <TransitForm tripId={tripId} type="train" sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
           {activeTab === "car" && (
-            <TransitForm tripId={tripId} type="car" sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+            <TransitForm tripId={tripId} type="car" sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
           {activeTab === "walking" && (
-            <WalkingForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+            <WalkingForm tripId={tripId} sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
           {activeTab === "visit" && (
-            <VisitForm tripId={tripId} sortOrder={segmentCount} onAdded={onAdded} onClose={onClose} />
+            <VisitForm tripId={tripId} sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
         </div>
         </div>

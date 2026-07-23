@@ -99,13 +99,13 @@ export default async function TripDetailPage({ params }: PageProps) {
   const healedSegments = await db.segment.findMany({
     where: { tripId: params.tripId },
     orderBy: { sortOrder: "asc" },
-    // gpxRaw et notes exclus (non utilisés ici, et gpxRaw est volumineux → limite Accelerate)
+    // gpxRaw exclu (volumineux → limite Accelerate) ; notes inclus (court, utile pour les visites)
     select: {
       id: true, type: true, name: true, geojson: true,
       distanceM: true, elevationGainM: true, elevationLossM: true,
       elevationPoints: true, durationMin: true, departureAt: true,
       arrivalAt: true, origin: true, destination: true,
-      startLat: true, startLon: true, komootUrl: true,
+      startLat: true, startLon: true, komootUrl: true, notes: true,
     },
   })
 
@@ -130,6 +130,7 @@ export default async function TripDetailPage({ params }: PageProps) {
     startLat:        s.startLat,
     startLon:        s.startLon,
     komootUrl:       s.komootUrl ?? null,
+    notes:           s.notes ?? null,
   }))
 
   const stopovers = trip.stopovers.map((s) => ({
