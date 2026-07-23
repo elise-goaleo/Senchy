@@ -80,15 +80,6 @@ function segmentLabel(seg: TripSegment) {
   return TYPE_LABELS[seg.type] ?? "Segment"
 }
 
-function formatTime(distanceM: number, kmh = 15) {
-  const min = Math.round((distanceM / 1000 / kmh) * 60)
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h} h`
-  return `${h} h ${m} min`
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TripClientView({
@@ -542,21 +533,13 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {selected.elevationLossM != null && selected.elevationLossM > 0 && (
+                {/* Dénivelé - : masqué pour le vélo (gpx), conservé pour les autres traces (à pied) */}
+                {selected.elevationLossM != null && selected.elevationLossM > 0 && selected.type !== "gpx" && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <TrendingDown className="h-4 w-4 text-slate-400" />
                     <div>
                       <p className="text-sm font-bold text-slate-900 leading-none">{Math.round(selected.elevationLossM)} m</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Dénivelé -</p>
-                    </div>
-                  </div>
-                )}
-                {selected.distanceM != null && selected.distanceM > 0 && selected.type === "gpx" && (
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Clock className="h-4 w-4 text-slate-400" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 leading-none">{formatTime(selected.distanceM)}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Temps estimé</p>
                     </div>
                   </div>
                 )}
