@@ -74,11 +74,13 @@ function ModalForm({
   const [komootUrl, setKomootUrl]     = useState(segment.komootUrl ?? "")
   const [notes, setNotes]             = useState(segment.notes ?? "")
   const isMilestone = segment.type === "arrival" || segment.type === "departure"
-  const milestoneLocal = toDatetimeLocal(segment.type === "arrival" ? segment.arrivalAt : segment.departureAt)
+  const depLocal = toDatetimeLocal(segment.departureAt)
+  const arrLocal = toDatetimeLocal(segment.arrivalAt)
   const [transportMode, setTransportMode] = useState(segment.transportMode ?? "")
   const [terminal, setTerminal]           = useState(segment.terminal ?? "")
-  const [mDate, setMDate]                 = useState(milestoneLocal ? milestoneLocal.slice(0, 10) : "")
-  const [mTime, setMTime]                 = useState(milestoneLocal ? milestoneLocal.slice(11, 16) : "")
+  const [mDate, setMDate]                 = useState((depLocal || arrLocal) ? (depLocal || arrLocal).slice(0, 10) : "")
+  const [mTimeDep, setMTimeDep]           = useState(depLocal ? depLocal.slice(11, 16) : "")
+  const [mTimeArr, setMTimeArr]           = useState(arrLocal ? arrLocal.slice(11, 16) : "")
   const [gpxFile, setGpxFile]         = useState<File | null>(null)
   const [isLoading, setIsLoading]     = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -122,9 +124,16 @@ function ModalForm({
       if (isMilestone) {
         body.transportMode = transportMode || null
         body.terminal      = terminal.trim() || null
-        const iso = mDate ? new Date(`${mDate}T${mTime || "12:00"}:00`).toISOString() : null
-        if (segment.type === "departure") body.departureAt = iso
-        else                              body.arrivalAt   = iso
+        body.origin        = origin.trim() || null
+        if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+        if (mDate) {
+          body.departureAt = mTimeDep ? new Date(`${mDate}T${mTimeDep}:00`).toISOString() : null
+          body.arrivalAt   = mTimeArr ? new Date(`${mDate}T${mTimeArr}:00`).toISOString() : null
+          if (!mTimeDep && !mTimeArr) body.departureAt = new Date(`${mDate}T12:00:00`).toISOString()
+        } else {
+          body.departureAt = null
+          body.arrivalAt   = null
+        }
       } else if (segment.type === "visit") {
         body.origin = origin.trim() || null
         body.notes  = notes.trim() || null
@@ -231,14 +240,22 @@ function ModalForm({
               {TRANSPORT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-city">{segment.type === "departure" ? "Ville d'arrivée" : "Ville de départ"}</Label>
+            <AddressAutocomplete id="m-city" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder={segment.type === "departure" ? "Ex : Rome, Italie" : "Ex : Lyon, France"} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-mdate">Date</Label>
+            <Input id="m-mdate" type="date" value={mDate} onChange={(e) => setMDate(e.target.value)} />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="m-mdate">Date</Label>
-              <Input id="m-mdate" type="date" value={mDate} onChange={(e) => setMDate(e.target.value)} />
+              <Label htmlFor="m-tdep">Heure de départ</Label>
+              <Input id="m-tdep" type="time" value={mTimeDep} onChange={(e) => setMTimeDep(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="m-mtime">Heure</Label>
-              <Input id="m-mtime" type="time" value={mTime} onChange={(e) => setMTime(e.target.value)} />
+              <Label htmlFor="m-tarr">Heure d'arrivée</Label>
+              <Input id="m-tarr" type="time" value={mTimeArr} onChange={(e) => setMTimeArr(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">

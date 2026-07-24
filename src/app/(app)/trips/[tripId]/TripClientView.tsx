@@ -143,11 +143,17 @@ export function TripClientView({
   // Geocode night addresses → moon markers on the map
   const stopoverMarkers = useStopoverMarkers(stopovers)
 
-  // Points à visiter (segments "visit" géocodés) → marqueurs sur la carte
+  // Points géolocalisés (visites + jalons départ/arrivée) → marqueurs sur la carte
   const visitMarkers = useMemo(
     () => orderedSegs
-      .filter((s) => s.type === "visit" && s.startLat != null && s.startLon != null)
-      .map((s) => ({ id: s.id, lat: s.startLat as number, lon: s.startLon as number, name: s.name, place: s.origin })),
+      .filter((s) => (s.type === "visit" || s.type === "departure" || s.type === "arrival") && s.startLat != null && s.startLon != null)
+      .map((s) => ({
+        id: s.id, lat: s.startLat as number, lon: s.startLon as number,
+        kind: s.type as "visit" | "departure" | "arrival",
+        name: s.name, place: s.origin,
+        transportMode: s.transportMode, terminal: s.terminal,
+        departureAt: s.departureAt, arrivalAt: s.arrivalAt,
+      })),
     [orderedSegs]
   )
 
@@ -614,14 +620,23 @@ export function TripClientView({
                         </div>
                       </div>
                     )}
+                    {selected.origin && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <MapPin className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[160px]">{selected.origin}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{selected.type === "departure" ? "Ville d'arrivée" : "Ville de départ"}</p>
+                        </div>
+                      </div>
+                    )}
                     {(selected.departureAt || selected.arrivalAt) && (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <CalendarClock className="h-4 w-4 text-slate-400" />
                         <div>
                           <p className="text-sm font-bold text-slate-900 leading-none">
-                            {new Date((selected.departureAt ?? selected.arrivalAt)!).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {[selected.departureAt, selected.arrivalAt].filter(Boolean).map((d) => new Date(d!).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })).join(" → ")}
                           </p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{selected.type === "departure" ? "Départ" : "Arrivée"}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Horaires</p>
                         </div>
                       </div>
                     )}
@@ -636,7 +651,7 @@ export function TripClientView({
                     )}
                   </>
                 )}
-                {selected.departureAt && selected.arrivalAt && (
+                {selected.departureAt && selected.arrivalAt && selected.type !== "departure" && selected.type !== "arrival" && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <CalendarClock className="h-4 w-4 text-blue-400" />
                     <div>

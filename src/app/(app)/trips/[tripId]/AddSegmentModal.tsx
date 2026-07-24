@@ -666,8 +666,11 @@ function MilestoneForm({
   tripId, kind, sortOrder, word, onAdded, onClose,
 }: { tripId: string; kind: "departure" | "arrival"; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
   const [mode, setMode]         = useState("")
+  const [city, setCity]         = useState("")
+  const [cityCoords, setCityCoords] = useState<AddressCoords | null>(null)
   const [date, setDate]         = useState("")
-  const [time, setTime]         = useState("")
+  const [timeDep, setTimeDep]   = useState("")
+  const [timeArr, setTimeArr]   = useState("")
   const [terminal, setTerminal] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -681,10 +684,12 @@ function MilestoneForm({
       const body: Record<string, unknown> = { tripId, type: kind, sortOrder }
       if (mode) body.transportMode = mode
       if (terminal.trim()) body.terminal = terminal.trim()
+      if (city.trim()) body.place = city.trim()
+      if (cityCoords) { body.lat = cityCoords.lat; body.lon = cityCoords.lon }
       if (date) {
-        const iso = new Date(`${date}T${time || "12:00"}:00`).toISOString()
-        if (kind === "departure") body.departureAt = iso
-        else body.arrivalAt = iso
+        if (timeDep) body.departureAt = new Date(`${date}T${timeDep}:00`).toISOString()
+        if (timeArr) body.arrivalAt   = new Date(`${date}T${timeArr}:00`).toISOString()
+        if (!timeDep && !timeArr) body.departureAt = new Date(`${date}T12:00:00`).toISOString()
       }
       const res = await fetch("/api/segments", {
         method: "POST",
@@ -726,14 +731,25 @@ function MilestoneForm({
         </select>
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="md-city">{kind === "departure" ? "Ville d'arrivée" : "Ville de départ"}</Label>
+        <AddressAutocomplete id="md-city" placeholder={kind === "departure" ? "Ex : Rome, Italie" : "Ex : Lyon, France"} value={city} onChange={(v, c) => { setCity(v); setCityCoords(c) }} />
+        <p className="text-xs text-slate-400">Renseigne une ville pour l'afficher sur la carte.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="md-date">Date</Label>
+        <Input id="md-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="md-date">Date</Label>
-          <Input id="md-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Label htmlFor="md-tdep">Heure de départ</Label>
+          <Input id="md-tdep" type="time" value={timeDep} onChange={(e) => setTimeDep(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="md-time">Heure</Label>
-          <Input id="md-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <Label htmlFor="md-tarr">Heure d'arrivée</Label>
+          <Input id="md-tarr" type="time" value={timeArr} onChange={(e) => setTimeArr(e.target.value)} />
         </div>
       </div>
 

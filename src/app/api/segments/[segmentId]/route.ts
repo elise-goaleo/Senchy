@@ -173,8 +173,8 @@ export async function PATCH(
     // (covers name changes, missing geojson on old segments, etc.)
     let geoUpdate: Record<string, unknown> = {}
 
-    if (segment.type === "visit") {
-      // Point unique : met à jour les coordonnées à partir de l'adresse
+    if (segment.type === "visit" || segment.type === "arrival" || segment.type === "departure") {
+      // Point unique (visite / jalon) : coords depuis l'adresse ou la ville
       const d = parsed.data
       if (d.originLat != null && d.originLon != null) {
         geoUpdate = { startLat: d.originLat, startLon: d.originLon }

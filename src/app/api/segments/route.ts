@@ -67,6 +67,9 @@ const milestoneSchema = z.object({
   type:          z.enum(["arrival", "departure"]),
   transportMode: z.string().max(50).optional(),
   terminal:      z.string().max(200).optional(),
+  place:         z.string().max(300).optional(),   // ville (arrivée pour un départ, départ pour une arrivée)
+  lat:           z.number().min(-90).max(90).optional(),
+  lon:           z.number().min(-180).max(180).optional(),
   departureAt:   z.string().datetime().optional(),
   arrivalAt:     z.string().datetime().optional(),
   sortOrder:     z.number().int().min(0),
@@ -222,7 +225,7 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400 }
         )
       }
-      const { tripId, type, transportMode, terminal, departureAt, arrivalAt, sortOrder } = parsed.data
+      const { tripId, type, transportMode, terminal, place, lat, lon, departureAt, arrivalAt, sortOrder } = parsed.data
       try { await requireTripOwnership(tripId, user.id) } catch (err) {
         if (err instanceof Response) return err; throw err
       }
@@ -231,6 +234,9 @@ export async function POST(request: Request): Promise<Response> {
           tripId, type, sortOrder,
           transportMode: transportMode || null,
           terminal:      terminal || null,
+          origin:        place || null,
+          startLat:      lat ?? null,
+          startLon:      lon ?? null,
           departureAt:   departureAt ? new Date(departureAt) : null,
           arrivalAt:     arrivalAt   ? new Date(arrivalAt)   : null,
         },

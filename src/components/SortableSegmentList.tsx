@@ -170,10 +170,11 @@ function SortableItem({
               {(seg.type === "departure" || seg.type === "arrival") && (
                 <>
                   {seg.transportMode && <span className="text-xs text-slate-400">{seg.transportMode}</span>}
+                  {seg.origin && <span className="text-xs text-slate-400 truncate">{seg.origin}</span>}
                   {(seg.departureAt || seg.arrivalAt) && (
                     <span className="text-xs text-slate-400 flex items-center gap-0.5">
                       <Clock className="h-3 w-3" />
-                      {new Date((seg.departureAt ?? seg.arrivalAt)!).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {[seg.departureAt, seg.arrivalAt].filter(Boolean).map((d) => new Date(d!).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })).join(" → ")}
                     </span>
                   )}
                   {seg.terminal && <span className="text-xs text-slate-400 truncate">{seg.terminal}</span>}
