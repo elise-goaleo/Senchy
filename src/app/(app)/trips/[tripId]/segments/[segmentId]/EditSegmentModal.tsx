@@ -27,7 +27,11 @@ export interface SegmentEditData {
   arrivalAt:   string | null
   komootUrl:   string | null
   notes?:      string | null
+  transportMode?: string | null
+  terminal?:      string | null
 }
+
+const TRANSPORT_MODES = ["Avion", "Train", "Voiture", "Bus", "Bateau", "Autre"]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +73,12 @@ function ModalForm({
   const [durationMin, setDurationMin] = useState(segment.durationMin?.toString() ?? "")
   const [komootUrl, setKomootUrl]     = useState(segment.komootUrl ?? "")
   const [notes, setNotes]             = useState(segment.notes ?? "")
+  const isMilestone = segment.type === "arrival" || segment.type === "departure"
+  const milestoneLocal = toDatetimeLocal(segment.type === "arrival" ? segment.arrivalAt : segment.departureAt)
+  const [transportMode, setTransportMode] = useState(segment.transportMode ?? "")
+  const [terminal, setTerminal]           = useState(segment.terminal ?? "")
+  const [mDate, setMDate]                 = useState(milestoneLocal ? milestoneLocal.slice(0, 10) : "")
+  const [mTime, setMTime]                 = useState(milestoneLocal ? milestoneLocal.slice(11, 16) : "")
   const [gpxFile, setGpxFile]         = useState<File | null>(null)
   const [isLoading, setIsLoading]     = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -109,7 +119,13 @@ function ModalForm({
         komootUrl: komootUrl.trim() || null,
       }
 
-      if (segment.type === "visit") {
+      if (isMilestone) {
+        body.transportMode = transportMode || null
+        body.terminal      = terminal.trim() || null
+        const iso = mDate ? new Date(`${mDate}T${mTime || "12:00"}:00`).toISOString() : null
+        if (segment.type === "departure") body.departureAt = iso
+        else                              body.arrivalAt   = iso
+      } else if (segment.type === "visit") {
         body.origin = origin.trim() || null
         body.notes  = notes.trim() || null
         if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
@@ -186,16 +202,51 @@ function ModalForm({
       )}
 
       {/* Name */}
-      <div className="space-y-2">
-        <Label htmlFor="m-name">{segment.type === "visit" ? "Nom du lieu" : "Nom du segment"}</Label>
-        <Input
-          id="m-name"
-          placeholder={segment.type === "train" ? "Ex : Lyon → Paris" : segment.type === "visit" ? "Ex : Colisée, Musée du Louvre…" : "Ex : Col du Galibier"}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={200}
-        />
-      </div>
+      {!isMilestone && (
+        <div className="space-y-2">
+          <Label htmlFor="m-name">{segment.type === "visit" ? "Nom du lieu" : "Nom du segment"}</Label>
+          <Input
+            id="m-name"
+            placeholder={segment.type === "train" ? "Ex : Lyon → Paris" : segment.type === "visit" ? "Ex : Colisée, Musée du Louvre…" : "Ex : Col du Galibier"}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={200}
+          />
+        </div>
+      )}
+
+      {/* Arrivée / Départ */}
+      {isMilestone && (
+        <>
+          <p className="text-sm text-slate-500">Tous les champs sont optionnels.</p>
+          <div className="space-y-2">
+            <Label htmlFor="m-mode">Mode de transport</Label>
+            <select
+              id="m-mode"
+              value={transportMode}
+              onChange={(e) => setTransportMode(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              <option value="">—</option>
+              {TRANSPORT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="m-mdate">Date</Label>
+              <Input id="m-mdate" type="date" value={mDate} onChange={(e) => setMDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-mtime">Heure</Label>
+              <Input id="m-mtime" type="time" value={mTime} onChange={(e) => setMTime(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-term">Terminal</Label>
+            <Input id="m-term" placeholder="Ex : Terminal 2E, Quai 3…" value={terminal} onChange={(e) => setTerminal(e.target.value)} maxLength={200} />
+          </div>
+        </>
+      )}
 
       {/* Visite — adresse + notes */}
       {segment.type === "visit" && (
@@ -220,7 +271,7 @@ function ModalForm({
       )}
 
       {/* Date — GPX / walking / car */}
-      {segment.type !== "train" && segment.type !== "visit" && (
+      {segment.type !== "train" && segment.type !== "visit" && !isMilestone && (
         <div className="space-y-2">
           <Label htmlFor="m-date">Date</Label>
           <Input id="m-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -371,7 +422,12 @@ export function EditSegmentModal({ segment }: { segment: SegmentEditData }) {
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">{segment.type === "visit" ? "Modifier la visite" : "Modifier le segment"}</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{
+            segment.type === "visit" ? "Modifier la visite"
+            : segment.type === "departure" ? "Modifier le départ"
+            : segment.type === "arrival" ? "Modifier l'arrivée"
+            : "Modifier le segment"
+          }</h2>
           <button
             onClick={() => setOpen(false)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"

@@ -62,6 +62,16 @@ const visitSegmentSchema = z.object({
   sortOrder: z.number().int().min(0),
 })
 
+const milestoneSchema = z.object({
+  tripId:        z.string().min(1),
+  type:          z.enum(["arrival", "departure"]),
+  transportMode: z.string().max(50).optional(),
+  terminal:      z.string().max(200).optional(),
+  departureAt:   z.string().datetime().optional(),
+  arrivalAt:     z.string().datetime().optional(),
+  sortOrder:     z.number().int().min(0),
+})
+
 const transitSegmentSchema = z.object({
   tripId:      z.string().min(1),
   name:        z.string().max(200).optional(),
@@ -197,6 +207,32 @@ export async function POST(request: Request): Promise<Response> {
           tripId, type: "gpx", name: name ?? null, sortOrder,
           departureAt: departureAt ? new Date(departureAt) : null,
           komootUrl:   komootUrl || null,
+        },
+      })
+      return Response.json(segment, { status: 201 })
+    }
+
+    // ── Arrivée / Départ (jalon transport — tout optionnel) ───────────────────
+    if (typeof body === "object" && body !== null &&
+        ((body as Record<string, unknown>).type === "arrival" || (body as Record<string, unknown>).type === "departure")) {
+      const parsed = milestoneSchema.safeParse(body)
+      if (!parsed.success) {
+        return Response.json(
+          { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+          { status: 400 }
+        )
+      }
+      const { tripId, type, transportMode, terminal, departureAt, arrivalAt, sortOrder } = parsed.data
+      try { await requireTripOwnership(tripId, user.id) } catch (err) {
+        if (err instanceof Response) return err; throw err
+      }
+      const segment = await db.segment.create({
+        data: {
+          tripId, type, sortOrder,
+          transportMode: transportMode || null,
+          terminal:      terminal || null,
+          departureAt:   departureAt ? new Date(departureAt) : null,
+          arrivalAt:     arrivalAt   ? new Date(arrivalAt)   : null,
         },
       })
       return Response.json(segment, { status: 201 })

@@ -20,6 +20,7 @@ import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
   Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
   Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin,
+  PlaneTakeoff, PlaneLanding,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -43,6 +44,8 @@ export interface TripSegment {
   startLon:  number | null
   komootUrl: string | null
   notes:     string | null
+  transportMode: string | null
+  terminal:      string | null
 }
 
 interface Props {
@@ -59,15 +62,17 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite", departure: "Départ", arrival: "Arrivée" }
 const EMPTY_POIS: never[] = []
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777", departure: "#0891b2", arrival: "#0d9488" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike      className="h-4 w-4" />,
   train:   <Train     className="h-4 w-4" />,
   walking: <Footprints className="h-4 w-4" />,
   car:     <Car       className="h-4 w-4" />,
   visit:   <Landmark  className="h-4 w-4" />,
+  departure: <PlaneTakeoff className="h-4 w-4" />,
+  arrival:   <PlaneLanding className="h-4 w-4" />,
 }
 
 const MODE_ORDER = ["gpx", "car", "train", "walking"]
@@ -598,6 +603,39 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
+                {(selected.type === "departure" || selected.type === "arrival") && (
+                  <>
+                    {selected.transportMode && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {selected.type === "departure" ? <PlaneTakeoff className="h-4 w-4 text-slate-400" /> : <PlaneLanding className="h-4 w-4 text-slate-400" />}
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 leading-none">{selected.transportMode}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Transport</p>
+                        </div>
+                      </div>
+                    )}
+                    {(selected.departureAt || selected.arrivalAt) && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <CalendarClock className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 leading-none">
+                            {new Date((selected.departureAt ?? selected.arrivalAt)!).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{selected.type === "departure" ? "Départ" : "Arrivée"}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selected.terminal && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <MapPin className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[140px]">{selected.terminal}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Terminal</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
                 {selected.departureAt && selected.arrivalAt && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <CalendarClock className="h-4 w-4 text-blue-400" />
@@ -644,6 +682,8 @@ export function TripClientView({
                     arrivalAt:   selected.arrivalAt,
                     komootUrl:   selected.komootUrl,
                     notes:       selected.notes,
+                    transportMode: selected.transportMode,
+                    terminal:      selected.terminal,
                   }}
                 />
                 {(selected.type === "gpx" || selected.type === "walking") && (
@@ -654,10 +694,10 @@ export function TripClientView({
                     </button>
                   </Link>
                 )}
-                {(selected.type === "train" || selected.type === "car" || selected.type === "visit") && (
+                {selected.type !== "gpx" && selected.type !== "walking" && (
                   <button
                     onClick={() => {
-                      if (confirm(`Supprimer ${isRoadtrip ? "l'étape" : "le segment"} "${selected.name ?? selected.origin + " → " + selected.destination}" ?`))
+                      if (confirm(`Supprimer ${isRoadtrip ? "l'étape" : "le segment"} "${selected.name ?? TYPE_LABELS[selected.type] ?? "cet élément"}" ?`))
                         handleDeleteSegment(selected.id)
                     }}
                     disabled={deletingId === selected.id}

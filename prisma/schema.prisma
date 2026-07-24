@@ -101,8 +101,10 @@ model Segment {
   id             String   @id @default(cuid())
   tripId         String   @map("trip_id")
   sortOrder      Int      @map("sort_order")
-  type           String   // 'gpx' | 'train' | 'walking'
+  type           String   // 'gpx' | 'train' | 'walking' | 'car' | 'visit' | 'arrival' | 'departure'
   name           String?
+  transportMode  String?  @map("transport_mode") // arrivée/départ : 'Avion' | 'Train' | …
+  terminal       String?  // arrivée/départ : terminal / gare / quai
   gpxRaw         String?  @map("gpx_raw") @db.Text
   geojson        Json?
   distanceM      Float?   @map("distance_m")

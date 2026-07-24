@@ -106,6 +106,7 @@ export default async function TripDetailPage({ params }: PageProps) {
       elevationPoints: true, durationMin: true, departureAt: true,
       arrivalAt: true, origin: true, destination: true,
       startLat: true, startLon: true, komootUrl: true, notes: true,
+      transportMode: true, terminal: true,
     },
   })
 
@@ -131,6 +132,8 @@ export default async function TripDetailPage({ params }: PageProps) {
     startLon:        s.startLon,
     komootUrl:       s.komootUrl ?? null,
     notes:           s.notes ?? null,
+    transportMode:   s.transportMode ?? null,
+    terminal:        s.terminal ?? null,
   }))
 
   const stopovers = trip.stopovers.map((s) => ({

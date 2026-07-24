@@ -20,20 +20,22 @@ import { CSS } from "@dnd-kit/utilities"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn, formatDuration } from "@/lib/utils"
-import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon, Landmark } from "lucide-react"
+import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon, Landmark, PlaneTakeoff, PlaneLanding } from "lucide-react"
 import type { TripSegment } from "@/app/(app)/trips/[tripId]/TripClientView"
 import type { Stopover } from "@/components/StopoversPanel"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite" }
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite", departure: "Départ", arrival: "Arrivée" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777", departure: "#0891b2", arrival: "#0d9488" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike       className="h-3.5 w-3.5" />,
   train:   <Train      className="h-3.5 w-3.5" />,
   walking: <Footprints className="h-3.5 w-3.5" />,
   car:     <Car        className="h-3.5 w-3.5" />,
   visit:   <Landmark   className="h-3.5 w-3.5" />,
+  departure: <PlaneTakeoff className="h-3.5 w-3.5" />,
+  arrival:   <PlaneLanding className="h-3.5 w-3.5" />,
 }
 
 function segmentLabel(seg: TripSegment) {
@@ -164,6 +166,18 @@ function SortableItem({
               )}
               {seg.type === "visit" && seg.origin && (
                 <span className="text-xs text-slate-400 truncate">{seg.origin}</span>
+              )}
+              {(seg.type === "departure" || seg.type === "arrival") && (
+                <>
+                  {seg.transportMode && <span className="text-xs text-slate-400">{seg.transportMode}</span>}
+                  {(seg.departureAt || seg.arrivalAt) && (
+                    <span className="text-xs text-slate-400 flex items-center gap-0.5">
+                      <Clock className="h-3 w-3" />
+                      {new Date((seg.departureAt ?? seg.arrivalAt)!).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  {seg.terminal && <span className="text-xs text-slate-400 truncate">{seg.terminal}</span>}
+                </>
               )}
             </div>
           </div>

@@ -56,6 +56,8 @@ const updateSegmentSchema = z.object({
   durationMin: z.number().int().positive().nullable().optional(),
   notes:       z.string().nullable().optional(),
   komootUrl:   z.string().url().nullable().optional(),
+  transportMode: z.string().max(50).nullable().optional(),
+  terminal:      z.string().max(200).nullable().optional(),
 })
 
 // ─── Route params ─────────────────────────────────────────────────────────────
@@ -227,6 +229,8 @@ export async function PATCH(
         ...(parsed.data.durationMin !== undefined && { durationMin: parsed.data.durationMin }),
         ...(parsed.data.notes     !== undefined && { notes:     parsed.data.notes }),
         ...(parsed.data.komootUrl !== undefined && { komootUrl: parsed.data.komootUrl }),
+        ...(parsed.data.transportMode !== undefined && { transportMode: parsed.data.transportMode }),
+        ...(parsed.data.terminal      !== undefined && { terminal:      parsed.data.terminal }),
         ...geoUpdate,
       },
     })
