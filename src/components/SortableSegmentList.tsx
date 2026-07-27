@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { cn, formatDuration } from "@/lib/utils"
+import { cn, formatDuration, cityName } from "@/lib/utils"
 import { GripVertical, ChevronRight, Clock, Train, Footprints, Bike, Car, CalendarDays, X, Check, Moon, Landmark, PlaneTakeoff, PlaneLanding } from "lucide-react"
 import type { TripSegment } from "@/app/(app)/trips/[tripId]/TripClientView"
 import type { Stopover } from "@/components/StopoversPanel"
@@ -40,6 +40,8 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 
 function segmentLabel(seg: TripSegment) {
   if (seg.name) return seg.name
+  // Départ / Arrivée : afficher la ville plutôt que "Départ"/"Arrivée"
+  if ((seg.type === "departure" || seg.type === "arrival") && seg.origin) return cityName(seg.origin)
   if (seg.origin && seg.destination) return `${seg.origin} → ${seg.destination}`
   return TYPE_LABELS[seg.type] ?? "Segment"
 }
@@ -170,7 +172,6 @@ function SortableItem({
               {(seg.type === "departure" || seg.type === "arrival") && (
                 <>
                   {seg.transportMode && <span className="text-xs text-slate-400">{seg.transportMode}</span>}
-                  {seg.origin && <span className="text-xs text-slate-400 truncate">{seg.origin}</span>}
                   {(seg.departureAt || seg.arrivalAt) && (
                     <span className="text-xs text-slate-400 flex items-center gap-0.5">
                       <Clock className="h-3 w-3" />
