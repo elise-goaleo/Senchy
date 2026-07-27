@@ -9,15 +9,14 @@ import { cn, formatDuration } from "@/lib/utils"
 import { StationAutocomplete } from "@/components/StationAutocomplete"
 import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
 import {
-  X, Upload, FileText, CheckCircle2, Loader2, Bike, Train, Footprints, Car, Landmark,
-  PlaneTakeoff, PlaneLanding,
+  X, Upload, FileText, CheckCircle2, Loader2, Bike, Train, Footprints, Car, Landmark, Plane,
 } from "lucide-react"
 import type { TripSegment } from "./TripClientView"
 import type { GeoJSON } from "geojson"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabType = "gpx" | "train" | "walking" | "car" | "visit" | "departure" | "arrival"
+type TabType = "gpx" | "train" | "walking" | "car" | "visit" | "flight"
 
 interface Props {
   open:         boolean
@@ -658,16 +657,18 @@ function VisitForm({
   )
 }
 
-// ── Milestone form (arrivée / départ) ─────────────────────────────────────────
+// ── Flight form (vol) ─────────────────────────────────────────────────────────
 
 const TRANSPORT_MODES = ["Avion", "Train", "Voiture", "Bus", "Bateau", "Autre"]
 
-function MilestoneForm({
-  tripId, kind, sortOrder, word, onAdded, onClose,
-}: { tripId: string; kind: "departure" | "arrival"; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
+function FlightForm({
+  tripId, sortOrder, word, onAdded, onClose,
+}: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
   const [mode, setMode]         = useState("")
-  const [city, setCity]         = useState("")
-  const [cityCoords, setCityCoords] = useState<AddressCoords | null>(null)
+  const [origin, setOrigin]     = useState("")
+  const [originCoords, setOriginCoords] = useState<AddressCoords | null>(null)
+  const [dest, setDest]         = useState("")
+  const [destCoords, setDestCoords]     = useState<AddressCoords | null>(null)
   const [date, setDate]         = useState("")
   const [timeDep, setTimeDep]   = useState("")
   const [timeArr, setTimeArr]   = useState("")
@@ -681,11 +682,13 @@ function MilestoneForm({
     setError(null)
     setIsLoading(true)
     try {
-      const body: Record<string, unknown> = { tripId, type: kind, sortOrder }
+      const body: Record<string, unknown> = { tripId, type: "flight", sortOrder }
       if (mode) body.transportMode = mode
       if (terminal.trim()) body.terminal = terminal.trim()
-      if (city.trim()) body.place = city.trim()
-      if (cityCoords) { body.lat = cityCoords.lat; body.lon = cityCoords.lon }
+      if (origin.trim()) body.origin = origin.trim()
+      if (dest.trim())   body.destination = dest.trim()
+      if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+      if (destCoords)   { body.destLat   = destCoords.lat;   body.destLon   = destCoords.lon }
       if (date) {
         if (timeDep) body.departureAt = new Date(`${date}T${timeDep}:00`).toISOString()
         if (timeArr) body.arrivalAt   = new Date(`${date}T${timeArr}:00`).toISOString()
@@ -719,9 +722,9 @@ function MilestoneForm({
       <p className="text-sm text-slate-500">Tous les champs sont optionnels.</p>
 
       <div className="space-y-1.5">
-        <Label htmlFor="md-mode">Mode de transport</Label>
+        <Label htmlFor="fl-mode">Mode de transport</Label>
         <select
-          id="md-mode"
+          id="fl-mode"
           value={mode}
           onChange={(e) => setMode(e.target.value)}
           className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-emerald-400"
@@ -732,36 +735,38 @@ function MilestoneForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="md-city">{kind === "departure" ? "Ville d'arrivée" : "Ville de départ"}</Label>
-        <AddressAutocomplete id="md-city" placeholder={kind === "departure" ? "Ex : Rome, Italie" : "Ex : Lyon, France"} value={city} onChange={(v, c) => { setCity(v); setCityCoords(c) }} />
-        <p className="text-xs text-slate-400">Renseigne une ville pour l'afficher sur la carte.</p>
+        <Label htmlFor="fl-origin">Ville de départ</Label>
+        <AddressAutocomplete id="fl-origin" placeholder="Ex : Lyon, France" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} />
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="md-date">Date</Label>
-        <Input id="md-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <Label htmlFor="fl-dest">Ville d'arrivée</Label>
+        <AddressAutocomplete id="fl-dest" placeholder="Ex : Rome, Italie" value={dest} onChange={(v, c) => { setDest(v); setDestCoords(c) }} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="fl-date">Date</Label>
+        <Input id="fl-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="md-tdep">Heure de départ</Label>
-          <Input id="md-tdep" type="time" value={timeDep} onChange={(e) => setTimeDep(e.target.value)} />
+          <Label htmlFor="fl-tdep">Heure de départ</Label>
+          <Input id="fl-tdep" type="time" value={timeDep} onChange={(e) => setTimeDep(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="md-tarr">Heure d'arrivée</Label>
-          <Input id="md-tarr" type="time" value={timeArr} onChange={(e) => setTimeArr(e.target.value)} />
+          <Label htmlFor="fl-tarr">Heure d'arrivée</Label>
+          <Input id="fl-tarr" type="time" value={timeArr} onChange={(e) => setTimeArr(e.target.value)} />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="md-term">Terminal</Label>
-        <Input id="md-term" placeholder="Ex : Terminal 2E, Quai 3…" value={terminal} onChange={(e) => setTerminal(e.target.value)} maxLength={200} />
+        <Label htmlFor="fl-term">Terminal</Label>
+        <Input id="fl-term" placeholder="Ex : Terminal 2E, Quai 3…" value={terminal} onChange={(e) => setTerminal(e.target.value)} maxLength={200} />
       </div>
 
       <div className="flex gap-3">
-        <Button type="submit" className="flex-1" isLoading={isLoading}>
-          {kind === "departure" ? "Ajouter le départ" : "Ajouter l'arrivée"}
-        </Button>
+        <Button type="submit" className="flex-1" isLoading={isLoading}>Ajouter le vol</Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>Annuler</Button>
       </div>
     </form>
@@ -790,29 +795,27 @@ function ErrorBox({ message }: { message: string }) {
 // ── Main modal ────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<TabType, string> = {
-  gpx:       "#5F7F6F",
-  train:     "#3b82f6",
-  car:       "#8b5cf6",
-  walking:   "#f59e0b",
-  visit:     "#db2777",
-  departure: "#0891b2",
-  arrival:   "#0d9488",
+  gpx:     "#5F7F6F",
+  train:   "#3b82f6",
+  car:     "#8b5cf6",
+  walking: "#f59e0b",
+  visit:   "#db2777",
+  flight:  "#0891b2",
 }
 
 const TAB_DEFS: Record<TabType, { label: string; icon: React.ReactNode }> = {
-  gpx:       { label: "Vélo",      icon: <Bike         className="h-4 w-4" /> },
-  train:     { label: "Train",     icon: <Train        className="h-4 w-4" /> },
-  car:       { label: "Voiture",   icon: <Car          className="h-4 w-4" /> },
-  walking:   { label: "À pied",    icon: <Footprints   className="h-4 w-4" /> },
-  visit:     { label: "Visite",    icon: <Landmark     className="h-4 w-4" /> },
-  departure: { label: "Départ",    icon: <PlaneTakeoff className="h-4 w-4" /> },
-  arrival:   { label: "Arrivée",   icon: <PlaneLanding className="h-4 w-4" /> },
+  gpx:     { label: "Vélo",    icon: <Bike       className="h-4 w-4" /> },
+  train:   { label: "Train",   icon: <Train      className="h-4 w-4" /> },
+  car:     { label: "Voiture", icon: <Car        className="h-4 w-4" /> },
+  walking: { label: "À pied",  icon: <Footprints className="h-4 w-4" /> },
+  visit:   { label: "Visite",  icon: <Landmark   className="h-4 w-4" /> },
+  flight:  { label: "Vol",     icon: <Plane      className="h-4 w-4" /> },
 }
 
 // Ordre des onglets selon le type de voyage
 const TAB_ORDER: Record<"biketrip" | "roadtrip", TabType[]> = {
   biketrip: ["gpx", "train", "car", "walking", "visit"],
-  roadtrip: ["departure", "car", "train", "walking", "gpx", "visit", "arrival"],
+  roadtrip: ["flight", "car", "train", "walking", "gpx", "visit"],
 }
 
 export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, tripType = "biketrip", onAdded }: Props) {
@@ -900,11 +903,8 @@ export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabe
           {activeTab === "visit" && (
             <VisitForm tripId={tripId} sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
-          {activeTab === "departure" && (
-            <MilestoneForm tripId={tripId} kind="departure" sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
-          )}
-          {activeTab === "arrival" && (
-            <MilestoneForm tripId={tripId} kind="arrival" sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
+          {activeTab === "flight" && (
+            <FlightForm tripId={tripId} sortOrder={segmentCount} word={word} onAdded={onAdded} onClose={onClose} />
           )}
         </div>
         </div>

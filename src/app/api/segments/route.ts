@@ -62,35 +62,24 @@ const visitSegmentSchema = z.object({
   sortOrder: z.number().int().min(0),
 })
 
-const milestoneSchema = z.object({
+const transitSegmentSchema = z.object({
   tripId:        z.string().min(1),
-  type:          z.enum(["arrival", "departure"]),
-  transportMode: z.string().max(50).optional(),
-  terminal:      z.string().max(200).optional(),
-  place:         z.string().max(300).optional(),   // ville (arrivée pour un départ, départ pour une arrivée)
-  lat:           z.number().min(-90).max(90).optional(),
-  lon:           z.number().min(-180).max(180).optional(),
+  name:          z.string().max(200).optional(),
+  type:          z.enum(["train", "walking", "car", "flight"]),
+  origin:        z.string().min(1).max(300).optional(),
+  destination:   z.string().min(1).max(300).optional(),
+  originLat:     z.number().min(-90).max(90).optional(),
+  originLon:     z.number().min(-180).max(180).optional(),
+  destLat:       z.number().min(-90).max(90).optional(),
+  destLon:       z.number().min(-180).max(180).optional(),
+  durationMin:   z.number().int().positive().optional(),
+  transportMode: z.string().max(50).optional(),   // vol : mode de transport
+  terminal:      z.string().max(200).optional(),  // vol : terminal
   departureAt:   z.string().datetime().optional(),
   arrivalAt:     z.string().datetime().optional(),
   sortOrder:     z.number().int().min(0),
-})
-
-const transitSegmentSchema = z.object({
-  tripId:      z.string().min(1),
-  name:        z.string().max(200).optional(),
-  type:        z.enum(["train", "walking", "car"]),
-  origin:      z.string().min(1).max(300).optional(),
-  destination: z.string().min(1).max(300).optional(),
-  originLat:   z.number().min(-90).max(90).optional(),
-  originLon:   z.number().min(-180).max(180).optional(),
-  destLat:     z.number().min(-90).max(90).optional(),
-  destLon:     z.number().min(-180).max(180).optional(),
-  durationMin: z.number().int().positive().optional(),
-  departureAt: z.string().datetime().optional(),
-  arrivalAt:   z.string().datetime().optional(),
-  sortOrder:   z.number().int().min(0),
 }).refine(
-  (d) => d.type === "walking" || d.type === "car" || d.durationMin != null || (d.departureAt != null && d.arrivalAt != null),
+  (d) => d.type === "walking" || d.type === "car" || d.type === "flight" || d.durationMin != null || (d.departureAt != null && d.arrivalAt != null),
   { message: "Durée ou horaires de départ/arrivée requis" }
 )
 
@@ -215,35 +204,6 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json(segment, { status: 201 })
     }
 
-    // ── Arrivée / Départ (jalon transport — tout optionnel) ───────────────────
-    if (typeof body === "object" && body !== null &&
-        ((body as Record<string, unknown>).type === "arrival" || (body as Record<string, unknown>).type === "departure")) {
-      const parsed = milestoneSchema.safeParse(body)
-      if (!parsed.success) {
-        return Response.json(
-          { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
-          { status: 400 }
-        )
-      }
-      const { tripId, type, transportMode, terminal, place, lat, lon, departureAt, arrivalAt, sortOrder } = parsed.data
-      try { await requireTripOwnership(tripId, user.id) } catch (err) {
-        if (err instanceof Response) return err; throw err
-      }
-      const segment = await db.segment.create({
-        data: {
-          tripId, type, sortOrder,
-          transportMode: transportMode || null,
-          terminal:      terminal || null,
-          origin:        place || null,
-          startLat:      lat ?? null,
-          startLon:      lon ?? null,
-          departureAt:   departureAt ? new Date(departureAt) : null,
-          arrivalAt:     arrivalAt   ? new Date(arrivalAt)   : null,
-        },
-      })
-      return Response.json(segment, { status: 201 })
-    }
-
     // ── Visite (point à visiter — pas de trajet) ──────────────────────────────
     if (typeof body === "object" && body !== null && (body as Record<string, unknown>).type === "visit") {
       const parsed = visitSegmentSchema.safeParse(body)
@@ -280,7 +240,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const { tripId, name, type, origin, destination, sortOrder,
-            departureAt, arrivalAt } = parsed.data
+            departureAt, arrivalAt, transportMode, terminal } = parsed.data
 
     // Compute durationMin from dates if not provided
     let durationMin = parsed.data.durationMin
@@ -335,6 +295,8 @@ export async function POST(request: Request): Promise<Response> {
         geojson:     geojson ? (geojson as object) : undefined,
         startLat:    fromCoords?.lat ?? null,
         startLon:    fromCoords?.lon ?? null,
+        transportMode: transportMode || null,
+        terminal:      terminal || null,
       },
     })
 

@@ -23,6 +23,7 @@ const SEGMENT_COLORS_LIGHT: Record<string, string> = {
   train:   "#2563eb",  // bleu train
   walking: "#ea8c00",  // ambre à pied
   car:     "#7c3aed",  // violet voiture
+  flight:  "#0891b2",  // cyan vol
 }
 // Couleurs plus vives pour ressortir sur le fond sombre.
 const SEGMENT_COLORS_DARK: Record<string, string> = {
@@ -30,6 +31,7 @@ const SEGMENT_COLORS_DARK: Record<string, string> = {
   train:   "#60a5fa",  // bleu clair
   walking: "#fbbf24",  // ambre clair
   car:     "#a78bfa",  // violet clair
+  flight:  "#22d3ee",  // cyan clair
 }
 
 const POI_COLORS: Record<string, string> = {
@@ -238,7 +240,7 @@ export default function TripMap({
               color:     "white",
               weight:    seg.type === "gpx" ? (isSelected ? 11 : 8) : (isSelected ? 9 : 7),
               opacity:   1,
-              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : undefined,
+              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : seg.type === "flight" ? "2, 10" : undefined,
               lineCap:   "round",
               lineJoin:  "round",
             }}
@@ -252,7 +254,7 @@ export default function TripMap({
         if (!seg.geojson) return null
         const isSelected = seg.id === selectedSegmentId
         const color = palette[seg.type] ?? "#64748b"
-        const isDashed = seg.type === "train" || seg.type === "walking" || seg.type === "car"
+        const isDashed = seg.type === "train" || seg.type === "walking" || seg.type === "car" || seg.type === "flight"
         const label = seg.name ?? (seg.origin && seg.destination ? `${seg.origin} → ${seg.destination}` : null)
         return (
           <GeoJSON
@@ -262,7 +264,7 @@ export default function TripMap({
               color,
               weight:    seg.type === "gpx" ? (isSelected ? 6 : 4) : (isSelected ? 5 : 3),
               opacity:   isSelected ? 1 : 0.95,
-              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : undefined,
+              dashArray: seg.type === "train" ? "10, 8" : seg.type === "walking" ? "3, 6" : seg.type === "car" ? "14, 6, 3, 6" : seg.type === "flight" ? "2, 10" : undefined,
               lineCap:   "round",
               lineJoin:  "round",
             }}

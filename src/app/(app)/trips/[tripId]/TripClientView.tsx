@@ -19,8 +19,7 @@ import { exportTripToExcel } from "@/hooks/useExportTrip"
 import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
   Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
-  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin,
-  PlaneTakeoff, PlaneLanding,
+  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin, Plane,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -62,17 +61,16 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite", departure: "Départ", arrival: "Arrivée" }
+const TYPE_LABELS: Record<string, string> = { gpx: "Vélo", train: "Train", walking: "À pied", car: "Voiture", visit: "Visite", flight: "Vol" }
 const EMPTY_POIS: never[] = []
-const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777", departure: "#0891b2", arrival: "#0d9488" }
+const TYPE_COLORS: Record<string, string> = { gpx: "#5F7F6F", train: "#3b82f6", walking: "#f59e0b", car: "#8b5cf6", visit: "#db2777", flight: "#0891b2" }
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   gpx:     <Bike      className="h-4 w-4" />,
   train:   <Train     className="h-4 w-4" />,
   walking: <Footprints className="h-4 w-4" />,
   car:     <Car       className="h-4 w-4" />,
   visit:   <Landmark  className="h-4 w-4" />,
-  departure: <PlaneTakeoff className="h-4 w-4" />,
-  arrival:   <PlaneLanding className="h-4 w-4" />,
+  flight:  <Plane     className="h-4 w-4" />,
 }
 
 const MODE_ORDER = ["gpx", "car", "train", "walking"]
@@ -143,16 +141,14 @@ export function TripClientView({
   // Geocode night addresses → moon markers on the map
   const stopoverMarkers = useStopoverMarkers(stopovers)
 
-  // Points géolocalisés (visites + jalons départ/arrivée) → marqueurs sur la carte
+  // Visites géocodées → marqueurs sur la carte (les vols s'affichent en ligne)
   const visitMarkers = useMemo(
     () => orderedSegs
-      .filter((s) => (s.type === "visit" || s.type === "departure" || s.type === "arrival") && s.startLat != null && s.startLon != null)
+      .filter((s) => s.type === "visit" && s.startLat != null && s.startLon != null)
       .map((s) => ({
         id: s.id, lat: s.startLat as number, lon: s.startLon as number,
-        kind: s.type as "visit" | "departure" | "arrival",
+        kind: "visit" as const,
         name: s.name, place: s.origin,
-        transportMode: s.transportMode, terminal: s.terminal,
-        departureAt: s.departureAt, arrivalAt: s.arrivalAt,
       })),
     [orderedSegs]
   )
@@ -595,7 +591,11 @@ export function TripClientView({
                   <div className="flex items-center gap-1.5 shrink-0">
                     <ArrowRight className="h-4 w-4 text-slate-400" />
                     <div>
-                      <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[140px]">{selected.origin} → {selected.destination}</p>
+                      <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[160px]">
+                        {selected.type === "flight" ? cityName(selected.origin) : selected.origin}
+                        {" → "}
+                        {selected.type === "flight" ? cityName(selected.destination) : selected.destination}
+                      </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Trajet</p>
                     </div>
                   </div>
@@ -609,34 +609,14 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {(selected.type === "departure" || selected.type === "arrival") && (
+                {selected.type === "flight" && (
                   <>
                     {selected.transportMode && (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {selected.type === "departure" ? <PlaneTakeoff className="h-4 w-4 text-slate-400" /> : <PlaneLanding className="h-4 w-4 text-slate-400" />}
+                        <Plane className="h-4 w-4 text-slate-400" />
                         <div>
                           <p className="text-sm font-bold text-slate-900 leading-none">{selected.transportMode}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">Transport</p>
-                        </div>
-                      </div>
-                    )}
-                    {selected.origin && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <MapPin className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[160px]">{cityName(selected.origin)}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{selected.type === "departure" ? "Ville d'arrivée" : "Ville de départ"}</p>
-                        </div>
-                      </div>
-                    )}
-                    {(selected.departureAt || selected.arrivalAt) && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <CalendarClock className="h-4 w-4 text-slate-400" />
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 leading-none">
-                            {[selected.departureAt, selected.arrivalAt].filter(Boolean).map((d) => new Date(d!).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })).join(" → ")}
-                          </p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Horaires</p>
                         </div>
                       </div>
                     )}
@@ -651,7 +631,7 @@ export function TripClientView({
                     )}
                   </>
                 )}
-                {selected.departureAt && selected.arrivalAt && selected.type !== "departure" && selected.type !== "arrival" && (
+                {selected.departureAt && selected.arrivalAt && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <CalendarClock className="h-4 w-4 text-blue-400" />
                     <div>

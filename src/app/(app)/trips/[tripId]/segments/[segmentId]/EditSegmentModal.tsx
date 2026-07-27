@@ -73,7 +73,7 @@ function ModalForm({
   const [durationMin, setDurationMin] = useState(segment.durationMin?.toString() ?? "")
   const [komootUrl, setKomootUrl]     = useState(segment.komootUrl ?? "")
   const [notes, setNotes]             = useState(segment.notes ?? "")
-  const isMilestone = segment.type === "arrival" || segment.type === "departure"
+  const isFlight = segment.type === "flight"
   const depLocal = toDatetimeLocal(segment.departureAt)
   const arrLocal = toDatetimeLocal(segment.arrivalAt)
   const [transportMode, setTransportMode] = useState(segment.transportMode ?? "")
@@ -121,11 +121,13 @@ function ModalForm({
         komootUrl: komootUrl.trim() || null,
       }
 
-      if (isMilestone) {
+      if (isFlight) {
         body.transportMode = transportMode || null
         body.terminal      = terminal.trim() || null
         body.origin        = origin.trim() || null
-        if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+        body.destination   = destination.trim() || null
+        if (originCoords)      { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
+        if (destinationCoords) { body.destLat   = destinationCoords.lat; body.destLon = destinationCoords.lon }
         if (mDate) {
           body.departureAt = mTimeDep ? new Date(`${mDate}T${mTimeDep}:00`).toISOString() : null
           body.arrivalAt   = mTimeArr ? new Date(`${mDate}T${mTimeArr}:00`).toISOString() : null
@@ -211,7 +213,7 @@ function ModalForm({
       )}
 
       {/* Name */}
-      {!isMilestone && (
+      {!isFlight && (
         <div className="space-y-2">
           <Label htmlFor="m-name">{segment.type === "visit" ? "Nom du lieu" : "Nom du segment"}</Label>
           <Input
@@ -224,8 +226,8 @@ function ModalForm({
         </div>
       )}
 
-      {/* Arrivée / Départ */}
-      {isMilestone && (
+      {/* Vol */}
+      {isFlight && (
         <>
           <p className="text-sm text-slate-500">Tous les champs sont optionnels.</p>
           <div className="space-y-2">
@@ -241,8 +243,12 @@ function ModalForm({
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="m-city">{segment.type === "departure" ? "Ville d'arrivée" : "Ville de départ"}</Label>
-            <AddressAutocomplete id="m-city" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder={segment.type === "departure" ? "Ex : Rome, Italie" : "Ex : Lyon, France"} />
+            <Label htmlFor="m-origin">Ville de départ</Label>
+            <AddressAutocomplete id="m-origin" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder="Ex : Lyon, France" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-dest">Ville d'arrivée</Label>
+            <AddressAutocomplete id="m-dest" value={destination} onChange={(v, c) => { setDestination(v); setDestinationCoords(c) }} placeholder="Ex : Rome, Italie" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="m-mdate">Date</Label>
@@ -288,7 +294,7 @@ function ModalForm({
       )}
 
       {/* Date — GPX / walking / car */}
-      {segment.type !== "train" && segment.type !== "visit" && !isMilestone && (
+      {segment.type !== "train" && segment.type !== "visit" && !isFlight && (
         <div className="space-y-2">
           <Label htmlFor="m-date">Date</Label>
           <Input id="m-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -441,8 +447,7 @@ export function EditSegmentModal({ segment }: { segment: SegmentEditData }) {
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
           <h2 className="text-lg font-semibold text-slate-900">{
             segment.type === "visit" ? "Modifier la visite"
-            : segment.type === "departure" ? "Modifier le départ"
-            : segment.type === "arrival" ? "Modifier l'arrivée"
+            : segment.type === "flight" ? "Modifier le vol"
             : "Modifier le segment"
           }</h2>
           <button
