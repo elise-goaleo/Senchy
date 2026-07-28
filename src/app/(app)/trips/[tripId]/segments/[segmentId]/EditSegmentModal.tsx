@@ -31,8 +31,6 @@ export interface SegmentEditData {
   terminal?:      string | null
 }
 
-const TRANSPORT_MODES = ["Avion", "Train", "Voiture", "Bus", "Bateau", "Autre"]
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toDateInput(isoStr: string | null): string {
@@ -76,7 +74,6 @@ function ModalForm({
   const isFlight = segment.type === "flight"
   const depLocal = toDatetimeLocal(segment.departureAt)
   const arrLocal = toDatetimeLocal(segment.arrivalAt)
-  const [transportMode, setTransportMode] = useState(segment.transportMode ?? "")
   const [terminal, setTerminal]           = useState(segment.terminal ?? "")
   const [mDate, setMDate]                 = useState((depLocal || arrLocal) ? (depLocal || arrLocal).slice(0, 10) : "")
   const [mTimeDep, setMTimeDep]           = useState(depLocal ? depLocal.slice(11, 16) : "")
@@ -122,7 +119,6 @@ function ModalForm({
       }
 
       if (isFlight) {
-        body.transportMode = transportMode || null
         body.terminal      = terminal.trim() || null
         body.origin        = origin.trim() || null
         body.destination   = destination.trim() || null
@@ -230,18 +226,6 @@ function ModalForm({
       {isFlight && (
         <>
           <p className="text-sm text-slate-500">Tous les champs sont optionnels.</p>
-          <div className="space-y-2">
-            <Label htmlFor="m-mode">Mode de transport</Label>
-            <select
-              id="m-mode"
-              value={transportMode}
-              onChange={(e) => setTransportMode(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-emerald-400"
-            >
-              <option value="">—</option>
-              {TRANSPORT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
           <div className="space-y-2">
             <Label htmlFor="m-origin">Ville de départ</Label>
             <AddressAutocomplete id="m-origin" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder="Ex : Lyon, France" />

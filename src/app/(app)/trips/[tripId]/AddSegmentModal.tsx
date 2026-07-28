@@ -659,12 +659,9 @@ function VisitForm({
 
 // ── Flight form (vol) ─────────────────────────────────────────────────────────
 
-const TRANSPORT_MODES = ["Avion", "Train", "Voiture", "Bus", "Bateau", "Autre"]
-
 function FlightForm({
   tripId, sortOrder, word, onAdded, onClose,
 }: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
-  const [mode, setMode]         = useState("")
   const [origin, setOrigin]     = useState("")
   const [originCoords, setOriginCoords] = useState<AddressCoords | null>(null)
   const [dest, setDest]         = useState("")
@@ -683,7 +680,6 @@ function FlightForm({
     setIsLoading(true)
     try {
       const body: Record<string, unknown> = { tripId, type: "flight", sortOrder }
-      if (mode) body.transportMode = mode
       if (terminal.trim()) body.terminal = terminal.trim()
       if (origin.trim()) body.origin = origin.trim()
       if (dest.trim())   body.destination = dest.trim()
@@ -720,19 +716,6 @@ function FlightForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && <ErrorBox message={error} />}
       <p className="text-sm text-slate-500">Tous les champs sont optionnels.</p>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="fl-mode">Mode de transport</Label>
-        <select
-          id="fl-mode"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 bg-white outline-none focus:ring-2 focus:ring-emerald-400"
-        >
-          <option value="">—</option>
-          {TRANSPORT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-      </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="fl-origin">Ville de départ</Label>
