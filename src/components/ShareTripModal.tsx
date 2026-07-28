@@ -1,20 +1,49 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { X, Link2, Copy, Check, Loader2, Trash2, UserPlus } from "lucide-react"
+import Image from "next/image"
+import { X, Link2, Copy, Check, Loader2, Trash2, UserPlus, User } from "lucide-react"
 
 interface Collaborator {
   id: string
   userId: string
   name: string | null
   email: string
+  avatarUrl: string | null
 }
 
 interface ShareState {
   shareToken: string | null
   currentUserId: string
-  owner: { id: string; name: string | null; email: string }
+  owner: { id: string; name: string | null; email: string; avatarUrl: string | null }
   collaborators: Collaborator[]
+}
+
+const AVATAR_COLORS = ["#1e293b", "#34d399", "#fbbf24", "#22d3ee", "#8b5cf6", "#f472b6"]
+
+function Avatar({
+  name,
+  avatarUrl,
+  colorIndex,
+}: {
+  name: string | null
+  avatarUrl: string | null
+  colorIndex: number
+}) {
+  return (
+    <div
+      className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full"
+      style={{ backgroundColor: AVATAR_COLORS[colorIndex % AVATAR_COLORS.length] }}
+    >
+      {avatarUrl ? (
+        <Image src={avatarUrl} alt={name ?? ""} fill unoptimized style={{ objectFit: "cover" }} />
+      ) : (
+        <span className="flex h-full w-full items-end justify-center">
+          <User className="h-6 w-6 text-white/90" fill="currentColor" strokeWidth={0} />
+        </span>
+      )}
+    </div>
+  )
 }
 
 export function ShareTripModal({
@@ -185,27 +214,33 @@ export function ShareTripModal({
                       Personnes ayant accès
                     </h3>
                     <ul className="mt-2 space-y-1.5">
-                      <li className="flex items-center justify-between rounded-lg px-2 py-1.5">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-800">
-                            {state.owner.name ?? state.owner.email}
-                            {state.owner.id === state.currentUserId && " (vous)"}
-                          </p>
-                          <p className="truncate text-xs text-slate-400">{state.owner.email}</p>
+                      <li className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar name={state.owner.name} avatarUrl={state.owner.avatarUrl} colorIndex={0} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {state.owner.name ?? state.owner.email}
+                              {state.owner.id === state.currentUserId && " (vous)"}
+                            </p>
+                            <p className="truncate text-xs text-slate-400">{state.owner.email}</p>
+                          </div>
                         </div>
                         <span className="shrink-0 text-xs font-medium text-emerald-700">Propriétaire</span>
                       </li>
-                      {state.collaborators.map((c) => (
+                      {state.collaborators.map((c, i) => (
                         <li
                           key={c.id}
-                          className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                          className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50"
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-800">
-                              {c.name ?? c.email}
-                              {c.userId === state.currentUserId && " (vous)"}
-                            </p>
-                            <p className="truncate text-xs text-slate-400">{c.email}</p>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Avatar name={c.name} avatarUrl={c.avatarUrl} colorIndex={i + 1} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-800">
+                                {c.name ?? c.email}
+                                {c.userId === state.currentUserId && " (vous)"}
+                              </p>
+                              <p className="truncate text-xs text-slate-400">{c.email}</p>
+                            </div>
                           </div>
                           <button
                             onClick={() => removeCollaborator(c.id)}

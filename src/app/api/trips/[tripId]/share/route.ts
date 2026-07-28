@@ -18,13 +18,13 @@ export async function GET(_req: Request, { params }: RouteContext): Promise<Resp
       where: { id: params.tripId },
       select: {
         shareToken: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
         collaborators: {
           orderBy: { createdAt: "asc" },
           select: {
             id: true,
             userId: true,
-            user: { select: { name: true, email: true } },
+            user: { select: { name: true, email: true, avatarUrl: true } },
           },
         },
       },
@@ -40,6 +40,7 @@ export async function GET(_req: Request, { params }: RouteContext): Promise<Resp
         userId: c.userId,
         name: c.user.name,
         email: c.user.email,
+        avatarUrl: c.user.avatarUrl,
       })),
     })
   } catch (e) {
