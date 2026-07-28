@@ -199,7 +199,7 @@ function GpxForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="gpx-name">{L.name} <span className="text-red-500">*</span></Label>
-        <Input id="gpx-name" placeholder="Ex : Col du Galibier" value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} autoFocus />
+        <Input id="gpx-name" placeholder="Ex : Col du Galibier" value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} />
       </div>
 
       <div className="space-y-1.5">
@@ -358,7 +358,7 @@ function WalkingForm({
       <div className="space-y-1.5">
         <Label htmlFor="w-name">{L.name} <span className="text-red-500">*</span></Label>
         <Input id="w-name" placeholder="Ex : Traversée du centre-ville"
-          value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} autoFocus />
+          value={name} onChange={(e) => { setName(e.target.value); setError(null) }} maxLength={200} />
       </div>
 
       {/* Départ / Arrivée */}
@@ -626,7 +626,7 @@ function VisitForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="v-name">Nom du lieu <span className="text-red-500">*</span></Label>
-        <Input id="v-name" placeholder="Ex : Colisée, Musée du Louvre…" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus />
+        <Input id="v-name" placeholder="Ex : Colisée, Musée du Louvre…" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </div>
 
       <div className="space-y-1.5">
