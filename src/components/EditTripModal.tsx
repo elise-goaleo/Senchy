@@ -193,6 +193,7 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
         }
 
         router.push(`/trips/${created.id}`)
+        router.refresh() // invalide le cache routeur pour que le dashboard (brouillons inclus) soit à jour
         return
       }
 
