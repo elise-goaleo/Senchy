@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { TripCard } from "@/components/TripCard"
 import { CreateTripModal } from "@/components/EditTripModal"
 import { CollapsibleTripSection } from "@/components/CollapsibleTripSection"
+import { tripAccessWhere } from "@/lib/ownership"
 import { Plus, Map } from "lucide-react"
 
 export const metadata = {
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
   }
 
   const trips = await db.trip.findMany({
-    where: { userId: session.user.id },
+    where: tripAccessWhere(session.user.id),
     orderBy: { createdAt: "desc" },
     include: {
       segments: {

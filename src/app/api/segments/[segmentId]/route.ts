@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
+import { userHasTripAccess } from "@/lib/ownership"
 import { parseGpx, computeStats } from "@/lib/gpx"
 import { routeDriving } from "@/lib/routing"
 import type { GeoJSON } from "geojson"
@@ -78,7 +79,7 @@ async function resolveSegment(segmentId: string, userId: string) {
     throw Response.json({ error: "Segment not found" }, { status: 404 })
   }
 
-  if (segment.trip.userId !== userId) {
+  if (!(await userHasTripAccess(segment.tripId, userId))) {
     throw Response.json({ error: "Forbidden" }, { status: 403 })
   }
 

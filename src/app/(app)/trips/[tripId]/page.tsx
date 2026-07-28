@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { userHasTripAccess } from "@/lib/ownership"
 import { TripClientView } from "./TripClientView"
 import type { GeoJSON } from "geojson"
 
@@ -90,7 +91,7 @@ export default async function TripDetailPage({ params }: PageProps) {
   })
 
   if (!trip) notFound()
-  if (trip.userId !== session.user.id) notFound()
+  if (!(await userHasTripAccess(trip.id, session.user.id))) notFound()
 
   // Silently heal transit segments that were created without a geojson trace
   await healTransitSegments(trip.segments)

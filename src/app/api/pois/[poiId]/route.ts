@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
+import { userHasTripAccess } from "@/lib/ownership"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ async function resolvePoi(poiId: string, userId: string) {
     throw Response.json({ error: "POI not found" }, { status: 404 })
   }
 
-  if (poi.trip.userId !== userId) {
+  if (!(await userHasTripAccess(poi.tripId, userId))) {
     throw Response.json({ error: "Forbidden" }, { status: 403 })
   }
 

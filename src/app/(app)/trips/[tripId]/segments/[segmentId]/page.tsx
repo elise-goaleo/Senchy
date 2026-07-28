@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { userHasTripAccess } from "@/lib/ownership"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -85,7 +86,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
   })
 
   if (!segment) notFound()
-  if (segment.trip.userId !== session.user.id) notFound()
+  if (!(await userHasTripAccess(segment.tripId, session.user.id))) notFound()
   if (segment.trip.id !== params.tripId) notFound()
 
   const geojson = segment.geojson

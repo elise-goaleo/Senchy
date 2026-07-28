@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,11 @@ interface FieldErrors {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+  const loginHref = callbackUrl
+    ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : "/login";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -90,7 +95,11 @@ export default function RegisterPage() {
       }
 
       // Success: redirect to login with success indicator
-      router.push("/login?registered=true");
+      router.push(
+        callbackUrl
+          ? `/login?registered=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
+          : "/login?registered=true"
+      );
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
@@ -248,7 +257,7 @@ export default function RegisterPage() {
               <p className="text-sm text-slate-500 text-center">
                 Already have an account?{" "}
                 <Link
-                  href="/login"
+                  href={loginHref}
                   className="font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
                 >
                   Sign in

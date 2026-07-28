@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
+import { userHasTripAccess } from "@/lib/ownership"
 
 interface RouteContext {
   params: { segmentId: string }
@@ -16,7 +17,7 @@ export async function GET(_req: Request, { params }: RouteContext): Promise<Resp
   })
 
   if (!segment) return Response.json({ error: "Segment not found" }, { status: 404 })
-  if (segment.trip.userId !== user.id) return Response.json({ error: "Forbidden" }, { status: 403 })
+  if (!(await userHasTripAccess(segment.tripId, user.id))) return Response.json({ error: "Forbidden" }, { status: 403 })
   if (!segment.gpxRaw) return Response.json({ error: "Aucune trace GPX" }, { status: 404 })
 
   const base = (segment.name ?? "trace").replace(/[^a-zA-Z0-9À-ÿ\s-]/g, "").trim() || "trace"

@@ -20,7 +20,11 @@ import Image from "next/image";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const rawCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl = rawCallbackUrl ?? "/dashboard";
+  const registerHref = rawCallbackUrl
+    ? `/register?callbackUrl=${encodeURIComponent(rawCallbackUrl)}`
+    : "/register";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -147,7 +151,7 @@ export default function LoginPage() {
               <p className="text-sm text-slate-500 text-center">
                 Don&apos;t have an account?{" "}
                 <Link
-                  href="/register"
+                  href={registerHref}
                   className="font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
                 >
                   Create one for free

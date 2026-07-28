@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { userHasTripAccess } from "@/lib/ownership"
 import { EditSegmentForm } from "./EditSegmentForm"
 
 interface PageProps {
@@ -25,7 +26,7 @@ export default async function EditSegmentPage({ params }: PageProps) {
   })
 
   if (!segment) notFound()
-  if (segment.trip.userId !== session.user.id) notFound()
+  if (!(await userHasTripAccess(segment.tripId, session.user.id))) notFound()
   if (segment.trip.id !== params.tripId) notFound()
 
   return (

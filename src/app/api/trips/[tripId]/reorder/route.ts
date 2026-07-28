@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { userHasTripAccess } from "@/lib/ownership"
 import { z } from "zod"
 
 const schema = z.object({
@@ -13,9 +14,7 @@ export async function PATCH(
   const session = await auth()
   if (!session?.user?.id) return new Response("Unauthorized", { status: 401 })
 
-  const trip = await db.trip.findUnique({ where: { id: params.tripId } })
-  if (!trip) return new Response("Not found", { status: 404 })
-  if (trip.userId !== session.user.id) return new Response("Forbidden", { status: 403 })
+  if (!(await userHasTripAccess(params.tripId, session.user.id))) return new Response("Forbidden", { status: 403 })
 
   const body = await request.json()
   const parsed = schema.safeParse(body)

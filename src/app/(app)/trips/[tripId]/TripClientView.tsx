@@ -11,6 +11,7 @@ import { useMapLayer } from "@/hooks/useMapLayer"
 import { useStopoverMarkers } from "@/hooks/useStopoverMarkers"
 import { AddSegmentModal } from "./AddSegmentModal"
 import { EditSegmentModal } from "./segments/[segmentId]/EditSegmentModal"
+import { ShareTripModal } from "@/components/ShareTripModal"
 import { Button } from "@/components/ui/button"
 import { TRIP_TYPE_LABELS, type TripType } from "@/components/EditTripModal"
 import { cn, formatDuration, cityName } from "@/lib/utils"
@@ -19,7 +20,7 @@ import { exportTripToExcel } from "@/hooks/useExportTrip"
 import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
   Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
-  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin, Plane,
+  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin, Plane, Share2,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -107,6 +108,7 @@ export function TripClientView({
   const [orderedSegs,     setOrderedSegs]     = useState(segments)
   const [stopovers,       setStopovers]       = useState<Stopover[]>(initialStopovers)
   const [addOpen,         setAddOpen]         = useState(false)
+  const [shareOpen,       setShareOpen]       = useState(false)
   const [panel,           setPanel]           = useState<"segments" | "stopovers">("segments")
   const [bottomCollapsed, setBottomCollapsed] = useState(false)
   const [editingStopover, setEditingStopover] = useState<Stopover | null>(null)
@@ -289,6 +291,10 @@ export function TripClientView({
         onAdded={(seg) => setOrderedSegs((prev) => prev.some((s) => s.id === seg.id) ? prev : [...prev, seg])}
       />
 
+      {shareOpen && (
+        <ShareTripModal tripId={tripId} tripName={tripName} onClose={() => setShareOpen(false)} />
+      )}
+
       {editingStopover && (
         <StopoverModal
           title="Modifier la nuit"
@@ -324,14 +330,24 @@ export function TripClientView({
               <ArrowLeft className="h-3.5 w-3.5" />
               Mes voyages
             </Link>
-            <button
-              onClick={() => exportTripToExcel(tripName, orderedSegs, stopovers)}
-              title="Exporter en Excel"
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-600"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              Export
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShareOpen(true)}
+                title="Partager le voyage"
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-600"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Partager
+              </button>
+              <button
+                onClick={() => exportTripToExcel(tripName, orderedSegs, stopovers)}
+                title="Exporter en Excel"
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-600"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Export
+              </button>
+            </div>
           </div>
           <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
           <div className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
