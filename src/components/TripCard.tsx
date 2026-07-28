@@ -21,6 +21,7 @@ interface TripCardProps {
     coverImagePosition:  string | null
     createdAt:           Date
     segments:            Array<{ type: string; distanceM: number | null; elevationGainM: number | null }>
+    user?:               { name: string | null; avatarUrl: string | null }
     collaborators?:      Array<{ user: { name: string | null; avatarUrl: string | null } }>
   }
 }
@@ -141,10 +142,15 @@ export function TripCard({ trip }: TripCardProps) {
         </div>
       </Link>
 
-      {/* Avatars des collaborateurs — uniquement si le voyage est partagé */}
+      {/* Avatars — propriétaire + collaborateurs, uniquement si le voyage est partagé */}
       {trip.collaborators && trip.collaborators.length > 0 && (
         <div className="absolute bottom-3 right-3 z-10">
-          <CollaboratorAvatars collaborators={trip.collaborators} />
+          <CollaboratorAvatars
+            collaborators={[
+              ...(trip.user ? [{ user: trip.user }] : []),
+              ...trip.collaborators,
+            ]}
+          />
         </div>
       )}
 

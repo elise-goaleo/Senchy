@@ -23,6 +23,7 @@ export default async function DashboardPage() {
     where: tripAccessWhere(session.user.id),
     orderBy: { createdAt: "desc" },
     include: {
+      user: { select: { name: true, avatarUrl: true } },
       segments: {
         select: { type: true, distanceM: true, elevationGainM: true },
       },
