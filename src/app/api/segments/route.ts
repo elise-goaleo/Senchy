@@ -75,6 +75,7 @@ const transitSegmentSchema = z.object({
   durationMin:   z.number().int().positive().optional(),
   transportMode: z.string().max(50).optional(),   // vol : mode de transport
   terminal:      z.string().max(200).optional(),  // vol : terminal
+  showOnMap:     z.boolean().optional(),           // vol : afficher le tracé sur la carte
   departureAt:   z.string().datetime().optional(),
   arrivalAt:     z.string().datetime().optional(),
   sortOrder:     z.number().int().min(0),
@@ -240,7 +241,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const { tripId, name, type, origin, destination, sortOrder,
-            departureAt, arrivalAt, transportMode, terminal } = parsed.data
+            departureAt, arrivalAt, transportMode, terminal, showOnMap } = parsed.data
 
     // Compute durationMin from dates if not provided
     let durationMin = parsed.data.durationMin
@@ -280,6 +281,10 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
+    // Vol : l'utilisateur peut choisir de ne pas afficher de tracé sur la carte
+    const showTrace = type === "flight" ? (showOnMap ?? true) : true
+    if (!showTrace) geojson = null
+
     const segment = await db.segment.create({
       data: {
         tripId,
@@ -297,6 +302,7 @@ export async function POST(request: Request): Promise<Response> {
         startLon:    fromCoords?.lon ?? null,
         transportMode: transportMode || null,
         terminal:      terminal || null,
+        showOnMap:     showTrace,
       },
     })
 

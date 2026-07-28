@@ -29,6 +29,7 @@ export interface SegmentEditData {
   notes?:      string | null
   transportMode?: string | null
   terminal?:      string | null
+  showOnMap?:     boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ function ModalForm({
   const depLocal = toDatetimeLocal(segment.departureAt)
   const arrLocal = toDatetimeLocal(segment.arrivalAt)
   const [terminal, setTerminal]           = useState(segment.terminal ?? "")
+  const [showOnMap, setShowOnMap]         = useState(segment.showOnMap ?? true)
   const [mDate, setMDate]                 = useState((depLocal || arrLocal) ? (depLocal || arrLocal).slice(0, 10) : "")
   const [mTimeDep, setMTimeDep]           = useState(depLocal ? depLocal.slice(11, 16) : "")
   const [mTimeArr, setMTimeArr]           = useState(arrLocal ? arrLocal.slice(11, 16) : "")
@@ -120,6 +122,7 @@ function ModalForm({
 
       if (isFlight) {
         body.terminal      = terminal.trim() || null
+        body.showOnMap     = showOnMap
         body.origin        = origin.trim() || null
         body.destination   = destination.trim() || null
         if (originCoords)      { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
@@ -252,6 +255,15 @@ function ModalForm({
             <Label htmlFor="m-term">Terminal</Label>
             <Input id="m-term" placeholder="Ex : Terminal 2E, Quai 3…" value={terminal} onChange={(e) => setTerminal(e.target.value)} maxLength={200} />
           </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showOnMap}
+              onChange={(e) => setShowOnMap(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className="text-sm text-slate-700">Afficher le trajet sur la carte</span>
+          </label>
         </>
       )}
 

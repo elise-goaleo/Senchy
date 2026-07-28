@@ -124,6 +124,7 @@ model Segment {
   terminal       String?  // arrivée/départ : terminal / gare / quai
   gpxRaw         String?  @map("gpx_raw") @db.Text
   geojson        Json?
+  showOnMap      Boolean  @default(true) @map("show_on_map") // vol : afficher (ou non) le tracé sur la carte
   distanceM      Float?   @map("distance_m")
   elevationGainM Float?   @map("elevation_gain_m")
   elevationLossM Float?   @map("elevation_loss_m")

@@ -22,10 +22,11 @@ async function geocode(place: string): Promise<{ lat: number; lon: number } | nu
 }
 
 async function healTransitSegments(
-  segments: Array<{ id: string; type: string; origin: string | null; destination: string | null; geojson: unknown }>
+  segments: Array<{ id: string; type: string; origin: string | null; destination: string | null; geojson: unknown; showOnMap: boolean }>
 ) {
   const toHeal = segments.filter(
-    (s) => s.type !== "gpx" && !s.geojson && s.origin && s.destination
+    // On ne « répare » pas un vol dont l'utilisateur a volontairement masqué le tracé
+    (s) => s.type !== "gpx" && !s.geojson && s.origin && s.destination && s.showOnMap
   )
   if (toHeal.length === 0) return
 
@@ -85,7 +86,7 @@ export default async function TripDetailPage({ params }: PageProps) {
       segments: {
         orderBy: { sortOrder: "asc" },
         // uniquement ce dont healTransitSegments a besoin
-        select: { id: true, type: true, origin: true, destination: true, geojson: true },
+        select: { id: true, type: true, origin: true, destination: true, geojson: true, showOnMap: true },
       },
     },
   })
@@ -107,7 +108,7 @@ export default async function TripDetailPage({ params }: PageProps) {
       elevationPoints: true, durationMin: true, departureAt: true,
       arrivalAt: true, origin: true, destination: true,
       startLat: true, startLon: true, komootUrl: true, notes: true,
-      transportMode: true, terminal: true,
+      transportMode: true, terminal: true, showOnMap: true,
     },
   })
 
@@ -135,6 +136,7 @@ export default async function TripDetailPage({ params }: PageProps) {
     notes:           s.notes ?? null,
     transportMode:   s.transportMode ?? null,
     terminal:        s.terminal ?? null,
+    showOnMap:       s.showOnMap,
   }))
 
   const stopovers = trip.stopovers.map((s) => ({

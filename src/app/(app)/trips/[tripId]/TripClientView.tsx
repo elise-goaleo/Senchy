@@ -46,6 +46,7 @@ export interface TripSegment {
   notes:     string | null
   transportMode: string | null
   terminal:      string | null
+  showOnMap:     boolean
 }
 
 interface Props {
@@ -701,6 +702,7 @@ export function TripClientView({
                     notes:       selected.notes,
                     transportMode: selected.transportMode,
                     terminal:      selected.terminal,
+                    showOnMap:     selected.showOnMap,
                   }}
                 />
                 {(selected.type === "gpx" || selected.type === "walking") && (

@@ -59,6 +59,7 @@ const updateSegmentSchema = z.object({
   komootUrl:   z.string().url().nullable().optional(),
   transportMode: z.string().max(50).nullable().optional(),
   terminal:      z.string().max(200).nullable().optional(),
+  showOnMap:     z.boolean().optional(),
 })
 
 // ─── Route params ─────────────────────────────────────────────────────────────
@@ -196,7 +197,20 @@ export async function PATCH(
         ? { lat: d.destLat, lon: d.destLon }
         : (effectiveDestination ? await geocode(effectiveDestination) : null)
 
-      if (fromCoords && toCoords) {
+      // Vol : respecte le choix « afficher le tracé sur la carte » (défaut = actuel)
+      const showTrace =
+        segment.type === "flight"
+          ? (d.showOnMap !== undefined ? d.showOnMap : segment.showOnMap)
+          : true
+
+      if (segment.type === "flight" && !showTrace) {
+        // Pas de tracé : on retire le geojson mais on garde les coordonnées.
+        geoUpdate = {
+          geojson:  null,
+          startLat: fromCoords?.lat ?? null,
+          startLon: fromCoords?.lon ?? null,
+        }
+      } else if (fromCoords && toCoords) {
         // Car segments follow the road network; fall back to a straight line.
         const route = segment.type === "car" ? await routeDriving(fromCoords, toCoords) : null
         geoUpdate = route
@@ -232,6 +246,7 @@ export async function PATCH(
         ...(parsed.data.komootUrl !== undefined && { komootUrl: parsed.data.komootUrl }),
         ...(parsed.data.transportMode !== undefined && { transportMode: parsed.data.transportMode }),
         ...(parsed.data.terminal      !== undefined && { terminal:      parsed.data.terminal }),
+        ...(parsed.data.showOnMap     !== undefined && { showOnMap:     parsed.data.showOnMap }),
         ...geoUpdate,
       },
     })

@@ -209,6 +209,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               departureAt: segment.departureAt?.toISOString() ?? null,
               arrivalAt:   segment.arrivalAt?.toISOString()   ?? null,
               komootUrl:   segment.komootUrl ?? null,
+              showOnMap:   segment.showOnMap,
             }}
           />
         </div>

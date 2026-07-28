@@ -58,6 +58,7 @@ function mapSegment(raw: any): TripSegment {
     notes:           raw.notes     ?? null,
     transportMode:   raw.transportMode ?? null,
     terminal:        raw.terminal      ?? null,
+    showOnMap:       raw.showOnMap ?? true,
   }
 }
 
@@ -670,6 +671,7 @@ function FlightForm({
   const [timeDep, setTimeDep]   = useState("")
   const [timeArr, setTimeArr]   = useState("")
   const [terminal, setTerminal] = useState("")
+  const [showOnMap, setShowOnMap] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [success, setSuccess]   = useState(false)
@@ -679,7 +681,7 @@ function FlightForm({
     setError(null)
     setIsLoading(true)
     try {
-      const body: Record<string, unknown> = { tripId, type: "flight", sortOrder }
+      const body: Record<string, unknown> = { tripId, type: "flight", sortOrder, showOnMap }
       if (terminal.trim()) body.terminal = terminal.trim()
       if (origin.trim()) body.origin = origin.trim()
       if (dest.trim())   body.destination = dest.trim()
@@ -747,6 +749,16 @@ function FlightForm({
         <Label htmlFor="fl-term">Terminal</Label>
         <Input id="fl-term" placeholder="Ex : Terminal 2E, Quai 3…" value={terminal} onChange={(e) => setTerminal(e.target.value)} maxLength={200} />
       </div>
+
+      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showOnMap}
+          onChange={(e) => setShowOnMap(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        />
+        <span className="text-sm text-slate-700">Afficher le trajet sur la carte</span>
+      </label>
 
       <div className="flex gap-3">
         <Button type="submit" className="flex-1" isLoading={isLoading}>Ajouter le vol</Button>
