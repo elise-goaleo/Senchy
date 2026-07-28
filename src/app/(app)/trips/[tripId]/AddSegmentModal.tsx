@@ -810,7 +810,7 @@ const TAB_DEFS: Record<TabType, { label: string; icon: React.ReactNode }> = {
 // Ordre des onglets selon le type de voyage
 const TAB_ORDER: Record<"biketrip" | "roadtrip", TabType[]> = {
   biketrip: ["gpx", "train", "car", "walking", "visit"],
-  roadtrip: ["flight", "car", "train", "walking", "gpx", "visit"],
+  roadtrip: ["car", "train", "walking", "gpx", "visit", "flight"],
 }
 
 export function AddSegmentModal({ open, onClose, tripId, segmentCount, titleLabel, tripType = "biketrip", onAdded }: Props) {
