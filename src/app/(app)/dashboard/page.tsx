@@ -26,6 +26,10 @@ export default async function DashboardPage() {
       segments: {
         select: { type: true, distanceM: true, elevationGainM: true },
       },
+      collaborators: {
+        orderBy: { createdAt: "asc" },
+        select: { user: { select: { name: true, avatarUrl: true } } },
+      },
     },
   })
 

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, TrendingUp, Map, Copy, Loader2, Bike, Footprints, Car } from "lucide-react"
+import { Calendar, TrendingUp, Map, Copy, Loader2, Bike, Footprints, Car, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EditTripModal, TRIP_TYPE_LABELS, type TripEditData, type TripType } from "@/components/EditTripModal"
 import { DeleteTripButton } from "@/components/DeleteTripButton"
@@ -21,7 +21,50 @@ interface TripCardProps {
     coverImagePosition:  string | null
     createdAt:           Date
     segments:            Array<{ type: string; distanceM: number | null; elevationGainM: number | null }>
+    collaborators?:      Array<{ user: { name: string | null; avatarUrl: string | null } }>
   }
+}
+
+// Palette des pastilles de secours (inspirée de l'affichage de référence)
+const AVATAR_COLORS = ["#1e293b", "#34d399", "#fbbf24", "#22d3ee", "#8b5cf6", "#f472b6"]
+
+function CollaboratorAvatars({
+  collaborators,
+}: {
+  collaborators: Array<{ user: { name: string | null; avatarUrl: string | null } }>
+}) {
+  const max = 4
+  const shown = collaborators.slice(0, max)
+  const extra = collaborators.length - shown.length
+
+  return (
+    <div className="flex items-center">
+      {shown.map((c, i) => (
+        <div
+          key={i}
+          title={c.user.name ?? undefined}
+          className="relative h-8 w-8 rounded-full ring-2 ring-white overflow-hidden shadow-sm"
+          style={{ marginLeft: i === 0 ? 0 : -10, zIndex: shown.length - i, backgroundColor: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
+        >
+          {c.user.avatarUrl ? (
+            <Image src={c.user.avatarUrl} alt={c.user.name ?? ""} fill unoptimized style={{ objectFit: "cover" }} />
+          ) : (
+            <span className="flex h-full w-full items-end justify-center">
+              <User className="h-6 w-6 text-white/90" fill="currentColor" strokeWidth={0} />
+            </span>
+          )}
+        </div>
+      ))}
+      {extra > 0 && (
+        <div
+          className="relative flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-white bg-slate-200 text-[11px] font-semibold text-slate-600 shadow-sm"
+          style={{ marginLeft: -10, zIndex: 0 }}
+        >
+          +{extra}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function formatDate(d: Date) {
@@ -97,6 +140,13 @@ export function TripCard({ trip }: TripCardProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         </div>
       </Link>
+
+      {/* Avatars des collaborateurs — uniquement si le voyage est partagé */}
+      {trip.collaborators && trip.collaborators.length > 0 && (
+        <div className="absolute bottom-3 right-3 z-10">
+          <CollaboratorAvatars collaborators={trip.collaborators} />
+        </div>
+      )}
 
       {/* Type pill — top left of cover */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm">
