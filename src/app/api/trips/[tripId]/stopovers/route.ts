@@ -10,6 +10,8 @@ const createSchema = z.object({
   endDate:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   name:     z.string().max(300).nullable().optional(),
   place:    z.string().max(500).nullable().optional(),
+  lat:      z.number().nullable().optional(),
+  lon:      z.number().nullable().optional(),
   notes:    z.string().max(1000).nullable().optional(),
   platform: z.enum(["booking", "airbnb"]).nullable().optional(),
   link:     z.string().url().nullable().optional(),
@@ -62,7 +64,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     })
     const sortOrder = (last?.sortOrder ?? -1) + 1
 
-    const { date, endDate, name, place, notes, platform, link } = parsed.data
+    const { date, endDate, name, place, lat, lon, notes, platform, link } = parsed.data
     const stopover = await db.stopover.create({
       data: {
         tripId: params.tripId,
@@ -71,6 +73,8 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
         endDate:  endDate ? new Date(endDate + "T12:00:00Z") : null,
         name:     name     ?? null,
         place:    place    ?? null,
+        lat:      lat      ?? null,
+        lon:      lon      ?? null,
         notes:    notes    ?? null,
         platform: platform ?? null,
         link:     link     ?? null,

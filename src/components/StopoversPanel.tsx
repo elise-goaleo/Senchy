@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { PlatformBadge } from "@/components/PlatformBadge"
+import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,8 @@ export interface Stopover {
   endDate:   string | null // ISO string — départ (optionnel)
   name:      string | null // nom du logement
   place:     string | null // adresse
+  lat:       number | null // latitude (adresse exacte)
+  lon:       number | null // longitude (adresse exacte)
   notes:     string | null
   platform:  "booking" | "airbnb" | null
   link:      string | null
@@ -121,6 +124,7 @@ function toDateInput(iso: string) { return iso.slice(0, 10) }
 
 export type StopoverFormData = {
   date: string; endDate: string | null; name: string | null; place: string | null;
+  lat: number | null; lon: number | null;
   notes: string; platform: "booking" | "airbnb" | null; link: string | null
 }
 
@@ -163,7 +167,7 @@ export function StopoverModal({
   title, initial, onSave, onClose, loading, error,
 }: {
   title:    string
-  initial?: { date: string; endDate: string | null; name: string | null; place: string | null; notes: string; platform: "booking" | "airbnb" | null; link: string | null }
+  initial?: { date: string; endDate: string | null; name: string | null; place: string | null; lat: number | null; lon: number | null; notes: string; platform: "booking" | "airbnb" | null; link: string | null }
   onSave:   (data: StopoverFormData) => void
   onClose:  () => void
   loading:  boolean
@@ -173,6 +177,9 @@ export function StopoverModal({
   const [endDate,  setEndDate]  = useState(initial?.endDate  ? toDateInput(initial.endDate) : "")
   const [name,     setName]     = useState(initial?.name     ?? "")
   const [place,    setPlace]    = useState(initial?.place    ?? "")
+  const [coords,   setCoords]   = useState<AddressCoords | null>(
+    initial?.lat != null && initial?.lon != null ? { lat: initial.lat, lon: initial.lon } : null
+  )
   const [notes,    setNotes]    = useState(initial?.notes    ?? "")
   const [platform, setPlatform] = useState<"booking" | "airbnb" | null>(initial?.platform ?? null)
   const [link,     setLink]     = useState(initial?.link     ?? "")
@@ -198,11 +205,14 @@ export function StopoverModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!date) return
+    const trimmedPlace = place.trim() || null
     onSave({
       date,
       endDate:  endDate || null,
       name:     name.trim()  || null,
-      place:    place.trim() || null,
+      place:    trimmedPlace,
+      lat:      trimmedPlace ? coords?.lat ?? null : null,
+      lon:      trimmedPlace ? coords?.lon ?? null : null,
       notes:    notes.trim(),
       platform,
       link:     link.trim()  || null,
@@ -277,13 +287,11 @@ export function StopoverModal({
             <Label htmlFor="s-place">
               Adresse <span className="text-slate-400 font-normal">(optionnel)</span>
             </Label>
-            <Input
+            <AddressAutocomplete
               id="s-place"
-              type="text"
-              placeholder="14 rue de la Paix, Paris…"
+              placeholder="14 rue de la Paix, 75002 Paris…"
               value={place}
-              onChange={(e) => setPlace(e.target.value)}
-              maxLength={500}
+              onChange={(value, c) => { setPlace(value); setCoords(c) }}
             />
           </div>
 
@@ -649,6 +657,8 @@ export function StopoversPanel({ tripId, stopovers, onChange }: Props) {
               endDate:  stop.endDate,
               name:     stop.name,
               place:    stop.place,
+              lat:      stop.lat,
+              lon:      stop.lon,
               notes:    stop.notes ?? "",
               platform: stop.platform,
               link:     stop.link,

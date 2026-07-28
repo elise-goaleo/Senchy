@@ -79,7 +79,7 @@ export default async function TripDetailPage({ params }: PageProps) {
         orderBy: { sortOrder: "asc" },
         select: {
           id: true, sortOrder: true, date: true, endDate: true,
-          name: true, place: true, notes: true, platform: true, link: true,
+          name: true, place: true, lat: true, lon: true, notes: true, platform: true, link: true,
         },
       },
       segments: {
@@ -144,6 +144,8 @@ export default async function TripDetailPage({ params }: PageProps) {
     endDate:   s.endDate ? s.endDate.toISOString() : null,
     name:      s.name ?? null,
     place:     s.place ?? null,
+    lat:       s.lat ?? null,
+    lon:       s.lon ?? null,
     notes:     s.notes,
     platform:  (s.platform as "booking" | "airbnb" | null) ?? null,
     link:      s.link ?? null,

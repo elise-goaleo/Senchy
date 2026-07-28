@@ -103,6 +103,8 @@ model Stopover {
   endDate   DateTime? @db.Date @map("end_date")
   name      String?
   place     String?
+  lat       Float?   // latitude de l'adresse exacte (si choisie via autocomplétion)
+  lon       Float?   // longitude de l'adresse exacte
   notes     String?
   platform  String?  // 'booking' | 'airbnb' | null (autre)
   link      String?  // URL de réservation

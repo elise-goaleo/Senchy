@@ -303,6 +303,8 @@ export function TripClientView({
             endDate:  editingStopover.endDate,
             name:     editingStopover.name,
             place:    editingStopover.place,
+            lat:      editingStopover.lat,
+            lon:      editingStopover.lon,
             notes:    editingStopover.notes ?? "",
             platform: editingStopover.platform,
             link:     editingStopover.link,

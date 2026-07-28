@@ -44,6 +44,11 @@ export function useStopoverMarkers(stopovers: Stopover[]): StopoverMarker[] {
     async function run() {
       const results = await Promise.all(
         stopovers.map(async (s): Promise<StopoverMarker | null> => {
+          // Adresse exacte choisie via autocomplétion → on utilise directement ses coordonnées
+          if (s.lat != null && s.lon != null) {
+            return { id: s.id, lat: s.lat, lon: s.lon, name: s.name, place: s.place, date: s.date, platform: s.platform, link: s.link }
+          }
+          // Sinon (adresse en texte libre, données héritées) → on géocode l'adresse
           const q = s.place?.trim()
           if (!q) return null
           let coords = cache.current.get(q)

@@ -10,6 +10,8 @@ const updateSchema = z.object({
   endDate:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   name:     z.string().max(300).nullable().optional(),
   place:    z.string().max(500).nullable().optional(),
+  lat:      z.number().nullable().optional(),
+  lon:      z.number().nullable().optional(),
   notes:    z.string().max(1000).nullable().optional(),
   platform: z.enum(["booking", "airbnb"]).nullable().optional(),
   link:     z.string().url().nullable().optional(),
@@ -30,7 +32,7 @@ export async function PATCH(req: Request, { params }: RouteContext): Promise<Res
       return Response.json({ error: "Validation failed", details: parsed.error.flatten().fieldErrors }, { status: 400 })
     }
 
-    const { date, endDate, name, place, notes, platform, link } = parsed.data
+    const { date, endDate, name, place, lat, lon, notes, platform, link } = parsed.data
     const stopover = await db.stopover.update({
       where: { id: params.stopovers, tripId: params.tripId },
       data: {
@@ -38,6 +40,8 @@ export async function PATCH(req: Request, { params }: RouteContext): Promise<Res
         ...(endDate  !== undefined && { endDate: endDate ? new Date(endDate + "T12:00:00Z") : null }),
         ...(name     !== undefined && { name }),
         ...(place    !== undefined && { place }),
+        ...(lat      !== undefined && { lat }),
+        ...(lon      !== undefined && { lon }),
         ...(notes    !== undefined && { notes }),
         ...(platform !== undefined && { platform }),
         ...(link     !== undefined && { link }),
