@@ -82,6 +82,10 @@ const CHIP_ICONS: Record<string, React.ReactNode> = {
 }
 
 function segmentLabel(seg: TripSegment) {
+  if (seg.type === "flight") {
+    const cities = [seg.origin, seg.destination].filter(Boolean).map((c) => cityName(c)).join(" → ")
+    return cities || TYPE_LABELS.flight
+  }
   if (seg.name) return seg.name
   if (seg.origin && seg.destination) return `${seg.origin} → ${seg.destination}`
   return TYPE_LABELS[seg.type] ?? "Segment"
@@ -578,7 +582,7 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {selected.durationMin != null && (
+                {selected.durationMin != null && selected.type !== "flight" && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Clock className="h-4 w-4 text-slate-400" />
                     <div>
@@ -587,7 +591,7 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {selected.origin && selected.destination && (
+                {selected.origin && selected.destination && selected.type !== "flight" && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <ArrowRight className="h-4 w-4 text-slate-400" />
                     <div>

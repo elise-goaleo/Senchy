@@ -163,7 +163,7 @@ function SortableItem({
               {seg.elevationGainM != null && seg.elevationGainM > 0 && (
                 <span className="text-xs text-slate-400">↑ {Math.round(seg.elevationGainM)} m</span>
               )}
-              {seg.durationMin != null && (
+              {seg.durationMin != null && seg.type !== "flight" && (
                 <span className="text-xs text-slate-400 flex items-center gap-0.5">
                   <Clock className="h-3 w-3" />{formatDuration(seg.durationMin)}
                 </span>
