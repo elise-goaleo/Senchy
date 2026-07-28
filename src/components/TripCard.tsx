@@ -142,18 +142,6 @@ export function TripCard({ trip }: TripCardProps) {
         </div>
       </Link>
 
-      {/* Avatars — propriétaire + collaborateurs, uniquement si le voyage est partagé */}
-      {trip.collaborators && trip.collaborators.length > 0 && (
-        <div className="absolute bottom-3 right-3 z-10">
-          <CollaboratorAvatars
-            collaborators={[
-              ...(trip.user ? [{ user: trip.user }] : []),
-              ...trip.collaborators,
-            ]}
-          />
-        </div>
-      )}
-
       {/* Type pill — top left of cover */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 shadow-sm">
         {tripType === "roadtrip" ? <Car className="h-3.5 w-3.5 text-[#8b5cf6]" /> : <Bike className="h-3.5 w-3.5 text-[#5F7F6F]" />}
@@ -180,7 +168,8 @@ export function TripCard({ trip }: TripCardProps) {
       <Link href={`/trips/${trip.id}`} className="block p-4 space-y-3">
 
         {/* Title + dates */}
-        <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
           <h2 className="font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
             {trip.name}
           </h2>
@@ -195,6 +184,19 @@ export function TripCard({ trip }: TripCardProps) {
               <Calendar className="h-3 w-3" />
               Aucune date définie
             </p>
+          )}
+          </div>
+
+          {/* Avatars — propriétaire + collaborateurs, uniquement si le voyage est partagé */}
+          {trip.collaborators && trip.collaborators.length > 0 && (
+            <div className="shrink-0">
+              <CollaboratorAvatars
+                collaborators={[
+                  ...(trip.user ? [{ user: trip.user }] : []),
+                  ...trip.collaborators,
+                ]}
+              />
+            </div>
           )}
         </div>
 
