@@ -610,7 +610,7 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {selected.origin && selected.destination && selected.type !== "flight" && (
+                {selected.origin && selected.destination && selected.type !== "flight" && selected.type !== "car" && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <ArrowRight className="h-4 w-4 text-slate-400" />
                     <div>
