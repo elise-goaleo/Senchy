@@ -59,6 +59,7 @@ const visitSegmentSchema = z.object({
   lat:       z.number().min(-90).max(90).optional(),
   lon:       z.number().min(-180).max(180).optional(),
   notes:     z.string().max(2000).optional(),
+  departureAt: z.string().datetime().optional(),
   sortOrder: z.number().int().min(0),
 })
 
@@ -214,7 +215,7 @@ export async function POST(request: Request): Promise<Response> {
           { status: 400 }
         )
       }
-      const { tripId, name, place, lat, lon, notes, sortOrder } = parsed.data
+      const { tripId, name, place, lat, lon, notes, departureAt, sortOrder } = parsed.data
       try { await requireTripOwnership(tripId, user.id) } catch (err) {
         if (err instanceof Response) return err; throw err
       }
@@ -225,6 +226,7 @@ export async function POST(request: Request): Promise<Response> {
           notes:    notes ?? null,
           startLat: lat ?? null,
           startLon: lon ?? null,
+          departureAt: departureAt ? new Date(departureAt) : null,
         },
       })
       return Response.json(segment, { status: 201 })

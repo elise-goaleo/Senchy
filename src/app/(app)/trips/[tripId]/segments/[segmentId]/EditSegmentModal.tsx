@@ -138,6 +138,7 @@ function ModalForm({
       } else if (segment.type === "visit") {
         body.origin = origin.trim() || null
         body.notes  = notes.trim() || null
+        body.departureAt = date ? new Date(date + "T12:00:00Z").toISOString() : null
         if (originCoords) { body.originLat = originCoords.lat; body.originLon = originCoords.lon }
       } else if (segment.type === "train") {
         body.origin      = origin.trim() || null
@@ -270,6 +271,10 @@ function ModalForm({
       {/* Visite — adresse + notes */}
       {segment.type === "visit" && (
         <>
+          <div className="space-y-2">
+            <Label htmlFor="m-visit-date">Date</Label>
+            <Input id="m-visit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="m-place">Adresse / lieu</Label>
             <AddressAutocomplete id="m-place" value={origin} onChange={(v, c) => { setOrigin(v); setOriginCoords(c) }} placeholder="Ex : Piazza del Colosseo, Rome" />

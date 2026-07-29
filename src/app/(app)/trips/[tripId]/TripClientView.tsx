@@ -622,6 +622,17 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
+                {selected.type === "visit" && selected.departureAt && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <CalendarClock className="h-4 w-4 text-slate-400" />
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 leading-none">
+                        {new Date(selected.departureAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Date</p>
+                    </div>
+                  </div>
+                )}
                 {selected.type === "visit" && selected.origin && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     <MapPin className="h-4 w-4 text-slate-400" />

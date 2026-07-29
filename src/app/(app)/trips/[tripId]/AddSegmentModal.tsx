@@ -577,6 +577,7 @@ function VisitForm({
   tripId, sortOrder, word, onAdded, onClose,
 }: { tripId: string; sortOrder: number; word: SegWord; onAdded: (s: TripSegment) => void; onClose: () => void }) {
   const [name, setName]           = useState("")
+  const [date, setDate]           = useState("")
   const [place, setPlace]         = useState("")
   const [coords, setCoords]       = useState<AddressCoords | null>(null)
   const [notes, setNotes]         = useState("")
@@ -595,6 +596,7 @@ function VisitForm({
         tripId, type: "visit", name: name.trim(), sortOrder,
         place: place.trim() || undefined,
         notes: notes.trim() || undefined,
+        departureAt: date ? new Date(`${date}T12:00:00Z`).toISOString() : undefined,
       }
       if (coords) { body.lat = coords.lat; body.lon = coords.lon }
 
@@ -627,6 +629,11 @@ function VisitForm({
       <div className="space-y-1.5">
         <Label htmlFor="v-name">Nom du lieu <span className="text-red-500">*</span></Label>
         <Input id="v-name" placeholder="Ex : Colisée, Musée du Louvre…" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="v-date">Date <span className="text-xs font-normal text-slate-400">(optionnel)</span></Label>
+        <Input id="v-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
 
       <div className="space-y-1.5">
