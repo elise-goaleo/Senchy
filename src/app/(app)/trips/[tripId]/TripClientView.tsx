@@ -619,7 +619,6 @@ export function TripClientView({
                         {" → "}
                         {selected.type === "flight" ? cityName(selected.destination) : selected.destination}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Trajet</p>
                     </div>
                   </div>
                 )}
