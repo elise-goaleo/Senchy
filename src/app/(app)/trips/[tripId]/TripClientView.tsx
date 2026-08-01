@@ -352,10 +352,14 @@ export function TripClientView({
               </button>
             </div>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
-          <div className="mt-1.5 inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-            {isRoadtrip ? <Car className="h-3 w-3 text-[#8b5cf6]" /> : <Bike className="h-3 w-3 text-[#5F7F6F]" />}
-            {TRIP_TYPE_LABELS[tripType]}
+          <div className="flex items-center gap-2">
+            <span
+              className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-lg bg-slate-100"
+              title={TRIP_TYPE_LABELS[tripType]}
+            >
+              {isRoadtrip ? <Car className="h-3.5 w-3.5 text-[#8b5cf6]" /> : <Bike className="h-3.5 w-3.5 text-[#5F7F6F]" />}
+            </span>
+            <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
           </div>
           {tripDescription && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{tripDescription}</p>
