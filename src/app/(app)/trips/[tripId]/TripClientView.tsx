@@ -20,7 +20,7 @@ import { exportTripToExcel } from "@/hooks/useExportTrip"
 import {
   Plus, ArrowLeft, Route, TrendingUp, TrendingDown,
   Clock, X, ArrowRight, Bike, Train, Footprints, Car, CalendarClock,
-  Sun, Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin, Plane, Share2,
+  Moon, Link2, ChevronDown, Trash2, Loader2, FileSpreadsheet, Landmark, MapPin, Plane, Share2,
 } from "lucide-react"
 import type { GeoJSON } from "geojson"
 
@@ -402,7 +402,7 @@ export function TripClientView({
         </div>
         </>)}
 
-        {/* ── Sun / Moon toggle (reste collé en haut au scroll) ──── */}
+        {/* ── Étapes / Nuits toggle (reste collé en haut au scroll) ──── */}
         <div className={cn("sticky top-0 z-20 bg-white px-5 pb-3", isRoadtrip ? "pt-1" : "pt-3")}>
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
@@ -414,7 +414,7 @@ export function TripClientView({
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
-              <Sun className="h-4 w-4" />
+              <Route className="h-4 w-4" />
               {StepsWord}
             </button>
             <button
