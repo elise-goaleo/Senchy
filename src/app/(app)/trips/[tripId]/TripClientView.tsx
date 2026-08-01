@@ -350,41 +350,41 @@ export function TripClientView({
 
             {/* Actions */}
             <div className="flex flex-col gap-2 px-5 pb-5">
-              <div className="[&>button]:w-full [&>button]:h-11 [&>button]:rounded-xl [&>button]:text-sm">
-                <EditSegmentModal
-                  segment={{
-                    id:          mobileVisit.id,
-                    type:        mobileVisit.type,
-                    name:        mobileVisit.name,
-                    origin:      mobileVisit.origin,
-                    destination: mobileVisit.destination,
-                    durationMin: mobileVisit.durationMin,
-                    departureAt: mobileVisit.departureAt,
-                    arrivalAt:   mobileVisit.arrivalAt,
-                    komootUrl:   mobileVisit.komootUrl,
-                    notes:       mobileVisit.notes,
-                    transportMode: mobileVisit.transportMode,
-                    terminal:      mobileVisit.terminal,
-                    showOnMap:     mobileVisit.showOnMap,
-                  }}
-                />
-              </div>
+              {mobileVisit.origin && (
+                <a
+                  href={
+                    mobileVisit.startLat != null && mobileVisit.startLon != null
+                      ? `https://www.google.com/maps/search/?api=1&query=${mobileVisit.startLat},${mobileVisit.startLon}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mobileVisit.origin)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 items-center justify-center gap-2 text-sm font-semibold text-white bg-[#D15F36] hover:bg-[#b8502d] rounded-xl transition-colors"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Ouvrir dans Google Maps
+                </a>
+              )}
               <div className="flex items-center gap-2">
-                {mobileVisit.origin && (
-                  <a
-                    href={
-                      mobileVisit.startLat != null && mobileVisit.startLon != null
-                        ? `https://www.google.com/maps/search/?api=1&query=${mobileVisit.startLat},${mobileVisit.startLon}`
-                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mobileVisit.origin)}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex h-10 flex-1 items-center justify-center gap-2 text-sm font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 rounded-xl transition-colors"
-                  >
-                    <MapPin className="h-4 w-4" />
-                    Google Maps
-                  </a>
-                )}
+                <div className="flex-1 [&>button]:w-full [&>button]:h-10 [&>button]:rounded-xl">
+                  <EditSegmentModal
+                    segment={{
+                      id:          mobileVisit.id,
+                      type:        mobileVisit.type,
+                      name:        mobileVisit.name,
+                      origin:      mobileVisit.origin,
+                      destination: mobileVisit.destination,
+                      durationMin: mobileVisit.durationMin,
+                      departureAt: mobileVisit.departureAt,
+                      arrivalAt:   mobileVisit.arrivalAt,
+                      komootUrl:   mobileVisit.komootUrl,
+                      notes:       mobileVisit.notes,
+                      transportMode: mobileVisit.transportMode,
+                      terminal:      mobileVisit.terminal,
+                      showOnMap:     mobileVisit.showOnMap,
+                    }}
+                  />
+                </div>
                 <button
                   onClick={() => {
                     if (confirm(`Supprimer la visite "${mobileVisit.name ?? "cette visite"}" ?`)) {
