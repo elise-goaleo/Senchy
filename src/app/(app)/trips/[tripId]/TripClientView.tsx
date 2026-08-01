@@ -13,7 +13,7 @@ import { AddSegmentModal } from "./AddSegmentModal"
 import { EditSegmentModal } from "./segments/[segmentId]/EditSegmentModal"
 import { ShareTripModal } from "@/components/ShareTripModal"
 import { Button } from "@/components/ui/button"
-import { TRIP_TYPE_LABELS, type TripType } from "@/components/EditTripModal"
+import { type TripType } from "@/components/EditTripModal"
 import { cn, formatDuration, cityName } from "@/lib/utils"
 import { ElevationChart } from "@/components/charts/ElevationChart"
 import { exportTripToExcel } from "@/hooks/useExportTrip"
@@ -352,15 +352,7 @@ export function TripClientView({
               </button>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2 py-1.5">
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">{tripName}</h1>
-            <span
-              className="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg bg-slate-100"
-              title={TRIP_TYPE_LABELS[tripType]}
-            >
-              {isRoadtrip ? <Car className="h-4 w-4 text-[#8b5cf6]" /> : <Bike className="h-4 w-4 text-[#5F7F6F]" />}
-            </span>
-          </div>
+          <h1 className="text-xl font-bold text-slate-900 leading-tight py-1.5">{tripName}</h1>
           {tripDescription && (
             <p className="text-sm text-slate-500 mt-1 line-clamp-2">{tripDescription}</p>
           )}
