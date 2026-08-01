@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { DynamicTripMap } from "@/components/map/DynamicTripMap"
@@ -117,7 +118,22 @@ export function TripClientView({
   const [stopoverError,   setStopoverError]   = useState<string | null>(null)
   const [deletingId,      setDeletingId]      = useState<string | null>(null)
   const [distanceMode,    setDistanceMode]    = useState<string>("")
+  const [mobileVisitId,   setMobileVisitId]   = useState<string | null>(null)
+  const [mounted,         setMounted]         = useState(false)
   const { layer, setLayer, layers }           = useMapLayer()
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!mobileVisitId) return
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileVisitId(null) }
+    window.addEventListener("keydown", handler)
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", handler)
+      document.body.style.overflow = ""
+    }
+  }, [mobileVisitId])
 
   // Sync segment data when server props change (e.g. after router.refresh() from EditSegmentModal)
   useEffect(() => {
@@ -192,6 +208,10 @@ export function TripClientView({
       const seg = orderedSegs.find((s) => s.id === id)
       if (seg?.type === "gpx" || seg?.type === "walking") {
         router.push(`/trips/${tripId}/segments/${id}`)
+        return
+      }
+      if (seg?.type === "visit") {
+        setMobileVisitId(id)
         return
       }
     }
@@ -279,8 +299,113 @@ export function TripClientView({
     }
   }
 
+  const mobileVisit = mobileVisitId ? orderedSegs.find((s) => s.id === mobileVisitId) ?? null : null
+
   return (
     <div className="relative h-full">
+
+      {mounted && mobileVisit && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setMobileVisitId(null) }}
+        >
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0" style={{ background: TYPE_COLORS.visit + "20" }}>
+                  <span style={{ color: TYPE_COLORS.visit }}>{TYPE_ICONS.visit}</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900 break-words leading-tight">{mobileVisit.name ?? "Visite"}</p>
+                  <p className="text-xs text-slate-400">{TYPE_LABELS.visit}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileVisitId(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 space-y-3">
+              {mobileVisit.departureAt && (
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  <CalendarClock className="h-4 w-4 text-slate-400 shrink-0" />
+                  {new Date(mobileVisit.departureAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                </div>
+              )}
+              {mobileVisit.origin && (
+                <div className="flex items-start gap-2 text-sm text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                  <span className="break-words">{mobileVisit.origin}</span>
+                </div>
+              )}
+              {mobileVisit.notes && (
+                <p className="text-sm text-slate-500 whitespace-pre-wrap border-t border-slate-100 pt-3">{mobileVisit.notes}</p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 px-5 pb-5">
+              {mobileVisit.origin && (
+                <a
+                  href={
+                    mobileVisit.startLat != null && mobileVisit.startLon != null
+                      ? `https://www.google.com/maps/search/?api=1&query=${mobileVisit.startLat},${mobileVisit.startLon}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mobileVisit.origin)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 items-center justify-center gap-2 text-sm font-semibold text-white bg-[#D15F36] hover:bg-[#b8502d] rounded-xl transition-colors"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Ouvrir dans Google Maps
+                </a>
+              )}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 [&>button]:w-full">
+                  <EditSegmentModal
+                    segment={{
+                      id:          mobileVisit.id,
+                      type:        mobileVisit.type,
+                      name:        mobileVisit.name,
+                      origin:      mobileVisit.origin,
+                      destination: mobileVisit.destination,
+                      durationMin: mobileVisit.durationMin,
+                      departureAt: mobileVisit.departureAt,
+                      arrivalAt:   mobileVisit.arrivalAt,
+                      komootUrl:   mobileVisit.komootUrl,
+                      notes:       mobileVisit.notes,
+                      transportMode: mobileVisit.transportMode,
+                      terminal:      mobileVisit.terminal,
+                      showOnMap:     mobileVisit.showOnMap,
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm(`Supprimer la visite "${mobileVisit.name ?? "cette visite"}" ?`)) {
+                      handleDeleteSegment(mobileVisit.id)
+                      setMobileVisitId(null)
+                    }
+                  }}
+                  disabled={deletingId === mobileVisit.id}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 shrink-0"
+                  title="Supprimer la visite"
+                >
+                  {deletingId === mobileVisit.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Trash2 className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <AddSegmentModal
         open={addOpen}
