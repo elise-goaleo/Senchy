@@ -324,7 +324,7 @@ export function TripClientView({
         <div className="flex-1 overflow-y-auto">
 
         {/* Header */}
-        <div className="px-5 pt-4 pb-4">
+        <div className={cn("px-5 pt-4", isRoadtrip ? "pb-1" : "pb-4")}>
           <div className="flex items-center justify-between mb-3">
             <Link
               href="/dashboard"
@@ -407,7 +407,7 @@ export function TripClientView({
         </>)}
 
         {/* ── Sun / Moon toggle (reste collé en haut au scroll) ──── */}
-        <div className="sticky top-0 z-20 bg-white px-5 py-3">
+        <div className={cn("sticky top-0 z-20 bg-white px-5 pb-3", isRoadtrip ? "pt-1" : "pt-3")}>
           <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
             <button
               onClick={() => setPanel("segments")}
