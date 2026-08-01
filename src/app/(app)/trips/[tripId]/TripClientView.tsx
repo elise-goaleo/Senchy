@@ -754,15 +754,6 @@ export function TripClientView({
                     </div>
                   </div>
                 )}
-                {selected.type === "visit" && selected.origin && (
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <MapPin className="h-4 w-4 text-slate-400" />
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 leading-none truncate max-w-[180px]">{selected.origin}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Lieu</p>
-                    </div>
-                  </div>
-                )}
                 {selected.type === "flight" && (
                   <>
                     {selected.transportMode && (
