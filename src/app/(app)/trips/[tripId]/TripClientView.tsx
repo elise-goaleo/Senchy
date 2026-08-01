@@ -359,7 +359,7 @@ export function TripClientView({
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-11 items-center justify-center gap-2 text-sm font-semibold text-white bg-[#D15F36] hover:bg-[#b8502d] rounded-xl transition-colors"
+                  className="flex h-11 items-center justify-center gap-2 text-sm font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 rounded-xl transition-colors"
                 >
                   <MapPin className="h-4 w-4" />
                   Ouvrir dans Google Maps
