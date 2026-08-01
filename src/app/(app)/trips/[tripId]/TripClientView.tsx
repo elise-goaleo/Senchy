@@ -686,7 +686,7 @@ export function TripClientView({
                     }
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-semibold text-[#db2777] hover:text-[#a3195b] bg-[#db2777]/10 hover:bg-[#db2777]/20 px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex h-8 items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 rounded-lg transition-colors"
                     title="Ouvrir dans Google Maps"
                   >
                     <MapPin className="h-3.5 w-3.5" />
@@ -729,7 +729,7 @@ export function TripClientView({
                 />
                 {(selected.type === "gpx" || selected.type === "walking") && (
                   <Link href={`/trips/${tripId}/segments/${selected.id}`}>
-                    <button className="flex items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 py-1.5 rounded-lg transition-colors">
+                    <button className="flex h-8 items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 rounded-lg transition-colors">
                       Détail
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
