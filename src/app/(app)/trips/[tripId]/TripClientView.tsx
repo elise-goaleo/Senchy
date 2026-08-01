@@ -677,6 +677,22 @@ export function TripClientView({
 
               {/* Actions */}
               <div className="flex items-center gap-2 shrink-0">
+                {selected.type === "visit" && selected.origin && (
+                  <a
+                    href={
+                      selected.startLat != null && selected.startLon != null
+                        ? `https://www.google.com/maps/search/?api=1&query=${selected.startLat},${selected.startLon}`
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.origin)}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[#db2777] hover:text-[#a3195b] bg-[#db2777]/10 hover:bg-[#db2777]/20 px-3 py-1.5 rounded-lg transition-colors"
+                    title="Ouvrir dans Google Maps"
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    Google Maps
+                  </a>
+                )}
                 {(selected.type === "gpx" || selected.type === "walking") && (
                   selected.komootUrl ? (
                     <a
