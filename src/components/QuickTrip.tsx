@@ -330,17 +330,15 @@ export function QuickTrip() {
               onClick={() => toggleCategory(cat.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                on
-                  ? "border-transparent text-white"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                on ? "" : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
               )}
-              style={on ? { backgroundColor: cat.color } : undefined}
+              style={on ? { backgroundColor: `${cat.color}22`, borderColor: `${cat.color}66`, color: cat.color } : undefined}
               title={cat.label}
             >
               <span>{cat.emoji}</span>
               <span className="hidden sm:inline">{cat.label}</span>
               {on && count != null && (
-                <span className="ml-0.5 rounded-full bg-white/25 px-1.5 py-px text-[10px] font-bold">
+                <span className="ml-0.5 rounded-full bg-white px-1.5 py-px text-[10px] font-bold">
                   {count}
                 </span>
               )}

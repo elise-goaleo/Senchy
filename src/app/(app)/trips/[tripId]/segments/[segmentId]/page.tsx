@@ -12,6 +12,7 @@ import { TravelTimeCalculator } from "@/components/TravelTimeCalculator"
 import { DeleteSegmentButton } from "./DeleteSegmentButton"
 import { EditSegmentModal } from "./EditSegmentModal"
 import { DownloadGpxButton } from "./DownloadGpxButton"
+import { OpenInQuickTripButton } from "./OpenInQuickTripButton"
 import {
   TrendingUp,
   TrendingDown,
@@ -196,6 +197,9 @@ export default async function SegmentDetailPage({ params }: PageProps) {
               hasGpx={segment.gpxRaw != null}
               filename={segmentLabel}
             />
+          )}
+          {hasTrace && geojson && (
+            <OpenInQuickTripButton geojson={geojson} name={segment.name} />
           )}
           <DeleteSegmentButton segmentId={segment.id} tripId={params.tripId} />
           <EditSegmentModal

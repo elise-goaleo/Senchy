@@ -12,6 +12,7 @@ import { useMapLayer } from "@/hooks/useMapLayer"
 import { useStopoverMarkers } from "@/hooks/useStopoverMarkers"
 import { AddSegmentModal } from "./AddSegmentModal"
 import { EditSegmentModal } from "./segments/[segmentId]/EditSegmentModal"
+import { OpenInQuickTripButton } from "./segments/[segmentId]/OpenInQuickTripButton"
 import { ShareTripModal } from "@/components/ShareTripModal"
 import { Button } from "@/components/ui/button"
 import { type TripType } from "@/components/EditTripModal"
@@ -843,6 +844,9 @@ export function TripClientView({
                     showOnMap:     selected.showOnMap,
                   }}
                 />
+                {(selected.type === "gpx" || selected.type === "walking") && selected.geojson && (
+                  <OpenInQuickTripButton geojson={selected.geojson} name={selected.name} label="Quick Trip" />
+                )}
                 {(selected.type === "gpx" || selected.type === "walking") && (
                   <Link href={`/trips/${tripId}/segments/${selected.id}`}>
                     <button className="flex h-8 items-center gap-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d] bg-[#D15F36]/10 hover:bg-[#D15F36]/20 px-3 rounded-lg transition-colors">
