@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { TripCard } from "@/components/TripCard"
 import { CreateTripModal } from "@/components/EditTripModal"
 import { CollapsibleTripSection } from "@/components/CollapsibleTripSection"
+import { QuickTripImport } from "@/components/QuickTripImport"
 import { tripAccessWhere } from "@/lib/ownership"
 import { Plus, Map } from "lucide-react"
 
@@ -63,7 +64,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header */}
+      {/* Quick trip — titre + import GPX (bascule vers la carte après import) */}
+      <section className="mb-6 sm:mb-12">
+        <h1 className="text-2xl font-bold text-slate-900">Quick trip</h1>
+        <p className="text-sm text-slate-500 mt-1 mb-4">
+          Charge un itinéraire pour repérer boulangeries, supermarchés, points d&apos;eau
+          et toilettes sur ta route
+        </p>
+        <QuickTripImport />
+      </section>
+
+      {/* Header Mes voyages */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mes voyages</h1>

@@ -45,7 +45,46 @@ const POI_COLORS: Record<string, string> = {
   hospital:    "#dc2626",
   pharmacy:    "#0ea5e9",
   water:       "#0ea5e9",
+  bakery:      "#d97706",
   camp:        "#84cc16",
+}
+
+// Libellés français + emoji pour les popups / marqueurs de POI
+const POI_LABELS: Record<string, string> = {
+  supermarket: "Supermarché",
+  toilet:      "Toilettes",
+  sight:       "Point d'intérêt",
+  restaurant:  "Restaurant",
+  cafe:        "Café",
+  hotel:       "Hôtel",
+  hospital:    "Hôpital",
+  pharmacy:    "Pharmacie",
+  water:       "Point d'eau",
+  bakery:      "Boulangerie",
+  camp:        "Camping",
+  bicycle_shop: "Vélociste",
+}
+
+const POI_EMOJI: Record<string, string> = {
+  bakery:      "🥖",
+  supermarket: "🛒",
+  water:       "💧",
+  toilet:      "🚻",
+}
+
+// opening_hours (OSM) → lignes lisibles en français (formatage léger, sans dépendance)
+function formatOpeningHours(raw: string): string[] {
+  const trimmed = raw.trim()
+  if (trimmed === "24/7") return ["Ouvert 24h/24, 7j/7"]
+  const days: Record<string, string> = {
+    Mo: "Lu", Tu: "Ma", We: "Me", Th: "Je", Fr: "Ve", Sa: "Sa", Su: "Di",
+  }
+  return trimmed.split(";").map((part) => {
+    let s = part.trim()
+    for (const [en, fr] of Object.entries(days)) s = s.split(en).join(fr)
+    s = s.replace(/\boff\b/gi, "fermé").replace(/\bPH\b/g, "j. fériés")
+    return s
+  })
 }
 
 // ── Icon factories ────────────────────────────────────────────────────────────
@@ -56,6 +95,29 @@ function circleIcon(color: string) {
     className: "",
     iconSize: [12, 12],
     iconAnchor: [6, 6],
+  })
+}
+
+// Pin en goutte avec un emoji au centre — pour les services (boulangerie, eau, toilettes)
+function emojiPinIcon(emoji: string, color: string) {
+  return L.divIcon({
+    html: `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:white;border:2px solid ${color};box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center">
+      <span style="transform:rotate(45deg);font-size:15px;line-height:1">${emoji}</span>
+    </div>`,
+    className: "",
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+    popupAnchor: [0, -28],
+  })
+}
+
+// Position actuelle de l'utilisateur : point bleu avec halo
+function userLocationIcon() {
+  return L.divIcon({
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid white;box-shadow:0 0 0 4px rgba(37,99,235,0.25),0 1px 4px rgba(0,0,0,0.35)"></div>`,
+    className: "",
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
   })
 }
 
@@ -106,6 +168,7 @@ interface TripMapProps {
     lon: number
     category: string
     name: string | null
+    openingHours?: string | null
   }>
   stopovers?: Array<{
     id: string
@@ -131,6 +194,7 @@ interface TripMapProps {
   }>
   selectedSegmentId?: string | null
   onSegmentClick?: (id: string) => void
+  userLocation?: { lat: number; lon: number } | null
   height?: string
   tileUrl?: string
   tileAttribution?: string
@@ -192,6 +256,21 @@ function FocusSegment({
   return null
 }
 
+// ── Fly to user location when it changes ──────────────────────────────────────
+
+function FlyToUser({ userLocation }: Pick<TripMapProps, "userLocation">) {
+  const map = useMap()
+  const prevKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!userLocation) return
+    const key = `${userLocation.lat},${userLocation.lon}`
+    if (key === prevKey.current) return
+    prevKey.current = key
+    map.flyTo([userLocation.lat, userLocation.lon], Math.max(map.getZoom(), 14), { duration: 0.8 })
+  }, [map, userLocation])
+  return null
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TripMap({
@@ -201,6 +280,7 @@ export default function TripMap({
   visits = [],
   selectedSegmentId,
   onSegmentClick,
+  userLocation,
   height = "100%",
   tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   tileAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -227,6 +307,7 @@ export default function TripMap({
 
       <InitialFit segments={segments} pois={pois} />
       <FocusSegment segments={segments} selectedSegmentId={selectedSegmentId} />
+      <FlyToUser userLocation={userLocation} />
 
       {/* Segment traces — pass 1: white outline (casing effect) for all types */}
       {segments.map((seg) => {
@@ -279,20 +360,53 @@ export default function TripMap({
 
 
       {/* POI markers */}
-      {pois.map((poi) => (
-        <Marker
-          key={poi.id}
-          position={[poi.lat, poi.lon]}
-          icon={circleIcon(POI_COLORS[poi.category] ?? "#64748b")}
-        >
+      {pois.map((poi) => {
+        const color = POI_COLORS[poi.category] ?? "#64748b"
+        const emoji = POI_EMOJI[poi.category]
+        const label = POI_LABELS[poi.category] ?? poi.category
+        // Nom + coordonnées → Google Maps ouvre la fiche du lieu (horaires, avis…)
+        // plutôt qu'une simple épingle. Repli sur les coordonnées si pas de nom.
+        const mapsQuery = poi.name ? `${poi.name} ${poi.lat},${poi.lon}` : `${poi.lat},${poi.lon}`
+        return (
+          <Marker
+            key={poi.id}
+            position={[poi.lat, poi.lon]}
+            icon={emoji ? emojiPinIcon(emoji, color) : circleIcon(color)}
+          >
+            <Popup>
+              <div className="text-sm" style={{ minWidth: 150 }}>
+                <p className="font-medium text-slate-900">{poi.name ?? label}</p>
+                <p className="text-slate-500 text-xs">{label}</p>
+                {poi.openingHours && (
+                  <div className="mt-1.5 border-t border-slate-100 pt-1.5">
+                    <p className="text-[11px] font-semibold text-slate-600">🕒 Horaires</p>
+                    {formatOpeningHours(poi.openingHours).map((line, i) => (
+                      <p key={i} className="text-xs text-slate-500 leading-snug">{line}</p>
+                    ))}
+                  </div>
+                )}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-[#D15F36] hover:text-[#b8502d]"
+                >
+                  Ouvrir dans Google Maps →
+                </a>
+              </div>
+            </Popup>
+          </Marker>
+        )
+      })}
+
+      {/* Position actuelle de l'utilisateur */}
+      {userLocation && (
+        <Marker position={[userLocation.lat, userLocation.lon]} icon={userLocationIcon()}>
           <Popup>
-            <div className="text-sm">
-              <p className="font-medium">{poi.name ?? poi.category}</p>
-              <p className="text-slate-500 text-xs capitalize">{poi.category}</p>
-            </div>
+            <p className="text-sm font-medium text-slate-900">Tu es ici</p>
           </Popup>
         </Marker>
-      ))}
+      )}
 
       {/* Stopover (night) markers — moon picto */}
       {stopovers.map((stop) => {
