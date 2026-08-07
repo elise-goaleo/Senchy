@@ -169,6 +169,7 @@ interface TripMapProps {
     category: string
     name: string | null
     openingHours?: string | null
+    dimmed?: boolean // horaires inconnus sous le filtre « ouvert » → marqueur atténué
   }>
   stopovers?: Array<{
     id: string
@@ -372,11 +373,15 @@ export default function TripMap({
             key={poi.id}
             position={[poi.lat, poi.lon]}
             icon={emoji ? emojiPinIcon(emoji, color) : circleIcon(color)}
+            opacity={poi.dimmed ? 0.4 : 1}
           >
             <Popup>
               <div className="text-sm" style={{ minWidth: 150 }}>
                 <p className="font-medium text-slate-900">{poi.name ?? label}</p>
                 <p className="text-slate-500 text-xs">{label}</p>
+                {poi.dimmed && (
+                  <p className="text-amber-600 text-xs mt-0.5">🕒 Horaires inconnus</p>
+                )}
                 {poi.openingHours && (
                   <div className="mt-1.5 border-t border-slate-100 pt-1.5">
                     <p className="text-[11px] font-semibold text-slate-600">🕒 Horaires</p>

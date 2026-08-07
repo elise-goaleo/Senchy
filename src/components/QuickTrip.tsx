@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import type { FeatureCollection } from "geojson"
-import { Upload, MapPin, LocateFixed, Loader2, Pencil, Link2, AlertCircle } from "lucide-react"
+import { Upload, MapPin, LocateFixed, Loader2, Pencil, Link2, AlertCircle, Clock } from "lucide-react"
 import { parseGpx, computeStats } from "@/lib/gpx"
+import { isOpenNow } from "@/lib/openingHours"
 import { DynamicTripMap } from "@/components/map/DynamicTripMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
 import { useMapLayer } from "@/hooks/useMapLayer"
@@ -66,6 +67,10 @@ export function QuickTrip() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
+
+  // Filtre « Ouvert actuellement » : instant du clic (null = filtre inactif).
+  // N'agit que sur les boulangeries/supermarchés (les seuls avec des horaires).
+  const [openNowAt, setOpenNowAt] = useState<number | null>(null)
 
   // Garde-fou contre les réponses hors-séquence lors de toggles rapides
   const reqIdRef = useRef(0)
@@ -226,7 +231,22 @@ export function QuickTrip() {
     setPoiError(null)
   }
 
-  const counts = pois.reduce<Record<string, number>>((acc, p) => {
+  // ── Filtre « Ouvert actuellement » (boulangeries + supermarchés) ────────────
+  // Fermé confirmé → masqué ; horaires inconnus → affiché mais grisé (dimmed).
+  const OPEN_FILTER_CATS = new Set<string>(["bakery", "supermarket"])
+  let hiddenClosed = 0
+  const displayPois: Array<Poi & { dimmed?: boolean }> = []
+  for (const p of pois) {
+    if (openNowAt == null || !OPEN_FILTER_CATS.has(p.category)) {
+      displayPois.push(p)
+      continue
+    }
+    const state = isOpenNow(p.openingHours, new Date(openNowAt))
+    if (state === false) { hiddenClosed++; continue }
+    displayPois.push({ ...p, dimmed: state === null })
+  }
+
+  const counts = displayPois.reduce<Record<string, number>>((acc, p) => {
     acc[p.category] = (acc[p.category] ?? 0) + 1
     return acc
   }, {})
@@ -345,6 +365,20 @@ export function QuickTrip() {
             </button>
           )
         })}
+        {/* Ouvert actuellement — ne filtre que boulangeries & supermarchés */}
+        <button
+          onClick={() => setOpenNowAt(openNowAt == null ? Date.now() : null)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+            openNowAt != null
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+          )}
+          title="N'afficher que les boulangeries et supermarchés ouverts à cet instant"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Ouvert</span>
+        </button>
         {loadingPois && (
           <span className="flex items-center gap-1.5 text-xs text-slate-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Recherche…
@@ -362,6 +396,14 @@ export function QuickTrip() {
           <AlertCircle className="h-4 w-4 shrink-0" /> Résultats partiels — une partie de la trace n&apos;a pas pu être interrogée, réessaie.
         </p>
       )}
+      {openNowAt != null && (
+        <p className="text-xs text-slate-400">
+          {hiddenClosed > 0
+            ? `${hiddenClosed} lieu${hiddenClosed > 1 ? "x" : ""} fermé${hiddenClosed > 1 ? "s" : ""} masqué${hiddenClosed > 1 ? "s" : ""} · `
+            : ""}
+          les lieux sans horaires connus restent affichés (grisés)
+        </p>
+      )}
 
       {/* Carte */}
       <div className="relative h-[70vh] min-h-[440px] w-full overflow-hidden rounded-xl border border-slate-200">
@@ -370,7 +412,7 @@ export function QuickTrip() {
         </div>
         <DynamicTripMap
           segments={[{ id: "quick", type: "gpx", geojson, name: fileName }]}
-          pois={pois}
+          pois={displayPois}
           userLocation={userLocation}
           tileUrl={layer.url}
           tileAttribution={layer.attribution}
