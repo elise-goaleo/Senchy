@@ -21,8 +21,8 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
 // Nombre de points conservés côté client. L'aperçu du voyage (carte + mini
 // profil) n'a pas besoin de la pleine résolution ; la page détail d'un segment
 // recharge, elle, les données complètes.
-const MAX_MAP_POINTS = 800
-const MAX_CHART_POINTS = 400
+const MAX_MAP_POINTS = 600
+const MAX_CHART_POINTS = 300
 
 // Réduit un tableau à `max` éléments en conservant les extrémités (échantillonnage régulier).
 function downsampleArray<T>(arr: T[], max: number): T[] {
@@ -33,21 +33,42 @@ function downsampleArray<T>(arr: T[], max: number): T[] {
   return out
 }
 
-// Réduit la résolution des tracés d'un FeatureCollection (LineString /
-// MultiLineString) pour alléger le volume envoyé au navigateur.
-function downsampleGeojson(fc: GeoJSON.FeatureCollection, maxPerLine: number): GeoJSON.FeatureCollection {
+const round5 = (n: number) => Math.round(n * 1e5) / 1e5
+
+// Allège drastiquement un tracé avant de l'envoyer au navigateur :
+//  - ne garde QUE la géométrie de ligne (les waypoints Point, invisibles sur la
+//    carte, embarquent parfois des dizaines de Ko de `properties` inutiles) ;
+//  - supprime les `properties` ;
+//  - échantillonne les coordonnées et les réduit à [lon, lat] (2D) avec une
+//    précision ~1 m (5 décimales).
+// La carte du voyage reste visuellement identique ; la pleine résolution est
+// conservée sur la page détail d'un segment.
+function slimGeojson(fc: GeoJSON.FeatureCollection, maxPerLine: number): GeoJSON.FeatureCollection {
+  const lines = (fc.features ?? []).filter(
+    (f) => f.geometry && (f.geometry.type === "LineString" || f.geometry.type === "MultiLineString")
+  )
   return {
-    ...fc,
-    features: (fc.features ?? []).map((f) => {
-      const g = f.geometry
-      if (!g) return f
+    type: "FeatureCollection",
+    features: lines.map((f) => {
+      const g = f.geometry as GeoJSON.LineString | GeoJSON.MultiLineString
       if (g.type === "LineString") {
-        return { ...f, geometry: { ...g, coordinates: downsampleArray(g.coordinates, maxPerLine) } }
+        return {
+          type: "Feature" as const,
+          properties: {},
+          geometry: {
+            type: "LineString" as const,
+            coordinates: downsampleArray(g.coordinates, maxPerLine).map((c) => [round5(c[0]), round5(c[1])]),
+          },
+        }
       }
-      if (g.type === "MultiLineString") {
-        return { ...f, geometry: { ...g, coordinates: g.coordinates.map((l) => downsampleArray(l, maxPerLine)) } }
+      return {
+        type: "Feature" as const,
+        properties: {},
+        geometry: {
+          type: "MultiLineString" as const,
+          coordinates: g.coordinates.map((l) => downsampleArray(l, maxPerLine).map((c) => [round5(c[0]), round5(c[1])])),
+        },
       }
-      return f
     }),
   }
 }
@@ -119,7 +140,6 @@ export default async function TripDetailPage({ params }: PageProps) {
   // (`geojson`, `elevationPoints`, `gpxRaw`) pour que cette réponse reste très
   // au-dessous de la limite de 5 Mo d'Accelerate, même sur un voyage qui
   // contient beaucoup de traces GPX.
-  try {
   const trip = await db.trip.findUnique({
     where: { id: params.tripId },
     select: {
@@ -207,7 +227,7 @@ export default async function TripDetailPage({ params }: PageProps) {
       type:            s.type,
       name:            s.name,
       geojson:         heavy?.geojson
-                         ? downsampleGeojson(heavy.geojson as unknown as GeoJSON.FeatureCollection, MAX_MAP_POINTS)
+                         ? slimGeojson(heavy.geojson as unknown as GeoJSON.FeatureCollection, MAX_MAP_POINTS)
                          : null,
       distanceM:       s.distanceM,
       elevationGainM:  s.elevationGainM,
@@ -260,24 +280,4 @@ export default async function TripDetailPage({ params }: PageProps) {
       totalElevLossM={totalElevLossM}
     />
   )
-  } catch (err) {
-    // ─── DIAGNOSTIC TEMPORAIRE — à RETIRER une fois la vraie cause identifiée ───
-    // On ne masque pas les redirections / notFound internes de Next.
-    if (err && typeof err === "object" && "digest" in err) {
-      const d = (err as { digest?: unknown }).digest
-      if (typeof d === "string" && (d.startsWith("NEXT_REDIRECT") || d === "NEXT_NOT_FOUND")) {
-        throw err
-      }
-    }
-    const e = (err ?? {}) as { name?: string; message?: string; code?: string; stack?: string }
-    return (
-      <div style={{ padding: 16, fontFamily: "monospace", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#b91c1c" }}>
-        <strong>DIAGNOSTIC — erreur au chargement du voyage</strong>
-        {"\n\n"}name: {String(e.name ?? "")}
-        {"\n"}code: {String(e.code ?? "")}
-        {"\n"}message: {String(e.message ?? "")}
-        {"\n\n"}{String(e.stack ?? "").slice(0, 2500)}
-      </div>
-    )
-  }
 }
