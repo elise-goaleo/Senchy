@@ -23,7 +23,14 @@ export default async function DashboardPage() {
   const trips = await db.trip.findMany({
     where: tripAccessWhere(session.user.id),
     orderBy: { createdAt: "desc" },
-    include: {
+    // On sélectionne explicitement les champs affichés et on EXCLUT
+    // `coverImageUrl` (image base64 volumineuse) : le charger pour tous les
+    // voyages à la fois dépasse la limite de réponse de 5 Mo d'Accelerate →
+    // dashboard en "server-side exception". La vignette est servie à part par
+    // /api/trips/[tripId]/cover.
+    select: {
+      id: true, name: true, type: true, description: true,
+      startDate: true, endDate: true, coverImagePosition: true, createdAt: true,
       user: { select: { name: true, avatarUrl: true } },
       segments: {
         select: { type: true, distanceM: true, elevationGainM: true },

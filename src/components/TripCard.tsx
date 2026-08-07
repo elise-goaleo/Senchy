@@ -17,7 +17,7 @@ interface TripCardProps {
     description:         string | null
     startDate:           Date | null
     endDate:             Date | null
-    coverImageUrl:       string | null
+    coverImageUrl?:      string | null
     coverImagePosition:  string | null
     createdAt:           Date
     segments:            Array<{ type: string; distanceM: number | null; elevationGainM: number | null }>
@@ -75,6 +75,10 @@ function formatDate(d: Date) {
 export function TripCard({ trip }: TripCardProps) {
   const router   = useRouter()
   const [duplicating, setDuplicating] = useState(false)
+  // La vignette est servie par /api/trips/[id]/cover (le dashboard ne charge plus
+  // le base64). En cas d'absence de couverture → 404 → on affiche le repli.
+  const [coverBroken, setCoverBroken] = useState(false)
+  const coverSrc = `/api/trips/${trip.id}/cover`
 
   async function handleDuplicate(e: React.MouseEvent) {
     e.preventDefault()
@@ -114,7 +118,7 @@ export function TripCard({ trip }: TripCardProps) {
     description:         trip.description,
     startDate:           trip.startDate ? trip.startDate.toISOString().slice(0, 10) : null,
     endDate:             trip.endDate   ? trip.endDate.toISOString().slice(0, 10)   : null,
-    coverImageUrl:       trip.coverImageUrl,
+    coverImageUrl:       coverBroken ? null : coverSrc,
     coverImagePosition:  trip.coverImagePosition,
   }
 
@@ -124,12 +128,13 @@ export function TripCard({ trip }: TripCardProps) {
       {/* Cover image */}
       <Link href={`/trips/${trip.id}`} className="block">
         <div className="relative h-40 bg-slate-100">
-          {trip.coverImageUrl ? (
-            <Image
-              src={trip.coverImageUrl}
+          {!coverBroken ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverSrc}
               alt={trip.name}
-              fill
-              unoptimized
+              onError={() => setCoverBroken(true)}
+              className="absolute inset-0 h-full w-full"
               style={{ objectFit: "cover", objectPosition: trip.coverImagePosition ?? "50% 50%" }}
             />
           ) : (
