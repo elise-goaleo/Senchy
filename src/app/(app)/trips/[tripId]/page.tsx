@@ -119,6 +119,7 @@ export default async function TripDetailPage({ params }: PageProps) {
   // (`geojson`, `elevationPoints`, `gpxRaw`) pour que cette réponse reste très
   // au-dessous de la limite de 5 Mo d'Accelerate, même sur un voyage qui
   // contient beaucoup de traces GPX.
+  try {
   const trip = await db.trip.findUnique({
     where: { id: params.tripId },
     select: {
@@ -259,4 +260,24 @@ export default async function TripDetailPage({ params }: PageProps) {
       totalElevLossM={totalElevLossM}
     />
   )
+  } catch (err) {
+    // ─── DIAGNOSTIC TEMPORAIRE — à RETIRER une fois la vraie cause identifiée ───
+    // On ne masque pas les redirections / notFound internes de Next.
+    if (err && typeof err === "object" && "digest" in err) {
+      const d = (err as { digest?: unknown }).digest
+      if (typeof d === "string" && (d.startsWith("NEXT_REDIRECT") || d === "NEXT_NOT_FOUND")) {
+        throw err
+      }
+    }
+    const e = (err ?? {}) as { name?: string; message?: string; code?: string; stack?: string }
+    return (
+      <div style={{ padding: 16, fontFamily: "monospace", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#b91c1c" }}>
+        <strong>DIAGNOSTIC — erreur au chargement du voyage</strong>
+        {"\n\n"}name: {String(e.name ?? "")}
+        {"\n"}code: {String(e.code ?? "")}
+        {"\n"}message: {String(e.message ?? "")}
+        {"\n\n"}{String(e.stack ?? "").slice(0, 2500)}
+      </div>
+    )
+  }
 }
