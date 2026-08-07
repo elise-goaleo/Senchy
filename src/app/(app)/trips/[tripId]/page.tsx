@@ -18,6 +18,40 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
   await Promise.all(workers)
 }
 
+// Nombre de points conservés côté client. L'aperçu du voyage (carte + mini
+// profil) n'a pas besoin de la pleine résolution ; la page détail d'un segment
+// recharge, elle, les données complètes.
+const MAX_MAP_POINTS = 800
+const MAX_CHART_POINTS = 400
+
+// Réduit un tableau à `max` éléments en conservant les extrémités (échantillonnage régulier).
+function downsampleArray<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr
+  const step = (arr.length - 1) / (max - 1)
+  const out: T[] = []
+  for (let i = 0; i < max; i++) out.push(arr[Math.round(i * step)])
+  return out
+}
+
+// Réduit la résolution des tracés d'un FeatureCollection (LineString /
+// MultiLineString) pour alléger le volume envoyé au navigateur.
+function downsampleGeojson(fc: GeoJSON.FeatureCollection, maxPerLine: number): GeoJSON.FeatureCollection {
+  return {
+    ...fc,
+    features: (fc.features ?? []).map((f) => {
+      const g = f.geometry
+      if (!g) return f
+      if (g.type === "LineString") {
+        return { ...f, geometry: { ...g, coordinates: downsampleArray(g.coordinates, maxPerLine) } }
+      }
+      if (g.type === "MultiLineString") {
+        return { ...f, geometry: { ...g, coordinates: g.coordinates.map((l) => downsampleArray(l, maxPerLine)) } }
+      }
+      return f
+    }),
+  }
+}
+
 // ── Auto-geocode transit segments that are missing a geojson trace ────────────
 
 async function geocode(place: string): Promise<{ lat: number; lon: number } | null> {
@@ -133,20 +167,32 @@ export default async function TripDetailPage({ params }: PageProps) {
     }))
   )
 
-  // Champs lourds (geojson + elevationPoints) chargés SEGMENT PAR SEGMENT, avec
-  // une concurrence bornée : chaque réponse Accelerate ne contient qu'un seul
-  // tracé, donc jamais > 5 Mo, quelle que soit la taille du voyage. On lit aussi
-  // startLat/startLon ici pour récupérer les valeurs fraîches après réparation.
+  // Champs lourds chargés SEGMENT PAR SEGMENT, et `geojson` / `elevationPoints`
+  // dans DEUX requêtes distinctes : ainsi une seule réponse Accelerate ne
+  // contient jamais qu'un seul champ d'un seul segment → jamais > 5 Mo, même
+  // pour un tracé très long. On lit startLat/startLon avec le geojson pour
+  // récupérer les valeurs fraîches après réparation.
   const heavyById = new Map<
     string,
     { geojson: unknown; elevationPoints: unknown; startLat: number | null; startLon: number | null }
   >()
   await mapLimit(trip.segments, 6, async (m) => {
-    const h = await db.segment.findUnique({
-      where: { id: m.id },
-      select: { geojson: true, elevationPoints: true, startLat: true, startLon: true },
+    const [geo, elev] = await Promise.all([
+      db.segment.findUnique({
+        where: { id: m.id },
+        select: { geojson: true, startLat: true, startLon: true },
+      }),
+      db.segment.findUnique({
+        where: { id: m.id },
+        select: { elevationPoints: true },
+      }),
+    ])
+    heavyById.set(m.id, {
+      geojson:         geo?.geojson ?? null,
+      startLat:        geo?.startLat ?? null,
+      startLon:        geo?.startLon ?? null,
+      elevationPoints: elev?.elevationPoints ?? null,
     })
-    if (h) heavyById.set(m.id, h)
   })
 
   const totalDistanceM  = trip.segments.reduce((sum, seg) => sum + (seg.distanceM      ?? 0), 0)
@@ -159,11 +205,18 @@ export default async function TripDetailPage({ params }: PageProps) {
       id:              s.id,
       type:            s.type,
       name:            s.name,
-      geojson:         heavy?.geojson ? (heavy.geojson as unknown as GeoJSON.FeatureCollection) : null,
+      geojson:         heavy?.geojson
+                         ? downsampleGeojson(heavy.geojson as unknown as GeoJSON.FeatureCollection, MAX_MAP_POINTS)
+                         : null,
       distanceM:       s.distanceM,
       elevationGainM:  s.elevationGainM,
       elevationLossM:  s.elevationLossM,
-      elevationPoints: (heavy?.elevationPoints ?? null) as Array<{ distanceM: number; elevationM: number }> | null,
+      elevationPoints: heavy?.elevationPoints
+                         ? downsampleArray(
+                             heavy.elevationPoints as Array<{ distanceM: number; elevationM: number }>,
+                             MAX_CHART_POINTS,
+                           )
+                         : null,
       durationMin:     s.durationMin,
       departureAt:     s.departureAt ? s.departureAt.toISOString() : null,
       arrivalAt:       s.arrivalAt   ? s.arrivalAt.toISOString()   : null,

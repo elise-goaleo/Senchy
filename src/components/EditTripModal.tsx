@@ -310,13 +310,15 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
           style={{ height: preview ? 44 : 120 }}
         >
           <input {...getInputProps()} />
-          <div className="flex items-center justify-center h-full gap-2 text-slate-400">
-            <Upload className="h-4 w-4 shrink-0" />
-            <p className="text-sm">
-              {isDragActive ? "Déposez l'image…"
-                : preview   ? "Changer la photo"
-                            : "Glissez une photo ou cliquez"}
-            </p>
+          <div className="flex flex-col items-center justify-center h-full gap-1 px-4 text-center text-slate-400">
+            <div className="flex items-center gap-2">
+              <Upload className="h-4 w-4 shrink-0" />
+              <p className="text-sm">
+                {isDragActive ? "Déposez l'image…"
+                  : preview   ? "Changer la photo"
+                              : "Glissez une photo ou cliquez"}
+              </p>
+            </div>
             {!preview && <span className="text-xs text-slate-300">JPG · PNG · WebP · max 5 Mo</span>}
           </div>
         </div>
