@@ -5,6 +5,19 @@ import { userHasTripAccess } from "@/lib/ownership"
 import { TripClientView } from "./TripClientView"
 import type { GeoJSON } from "geojson"
 
+// Exécute `fn` sur chaque item avec une concurrence bornée (pour charger les
+// champs lourds segment par segment sans saturer Accelerate).
+async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const idx = cursor++
+      await fn(items[idx])
+    }
+  })
+  await Promise.all(workers)
+}
+
 // ── Auto-geocode transit segments that are missing a geojson trace ────────────
 
 async function geocode(place: string): Promise<{ lat: number; lon: number } | null> {
@@ -68,6 +81,10 @@ export default async function TripDetailPage({ params }: PageProps) {
   // exclut `gpxRaw` (GPX brut, jamais envoyé au client — servi à part par
   // /api/segments/[id]/gpx) et `coverImageUrl` (non utilisé ici) : sinon la
   // réponse dépasse la limite de 5 Mo d'Accelerate sur les gros voyages.
+  // Métadonnées légères de TOUS les segments : on exclut ici les champs lourds
+  // (`geojson`, `elevationPoints`, `gpxRaw`) pour que cette réponse reste très
+  // au-dessous de la limite de 5 Mo d'Accelerate, même sur un voyage qui
+  // contient beaucoup de traces GPX.
   const trip = await db.trip.findUnique({
     where: { id: params.tripId },
     select: {
@@ -85,8 +102,13 @@ export default async function TripDetailPage({ params }: PageProps) {
       },
       segments: {
         orderBy: { sortOrder: "asc" },
-        // uniquement ce dont healTransitSegments a besoin
-        select: { id: true, type: true, origin: true, destination: true, geojson: true, showOnMap: true },
+        select: {
+          id: true, type: true, name: true,
+          distanceM: true, elevationGainM: true, elevationLossM: true,
+          durationMin: true, departureAt: true, arrivalAt: true,
+          origin: true, destination: true, startLat: true, startLon: true,
+          komootUrl: true, notes: true, transportMode: true, terminal: true, showOnMap: true,
+        },
       },
     },
   })
@@ -94,50 +116,68 @@ export default async function TripDetailPage({ params }: PageProps) {
   if (!trip) notFound()
   if (!(await userHasTripAccess(trip.id, session.user.id))) notFound()
 
-  // Silently heal transit segments that were created without a geojson trace
-  await healTransitSegments(trip.segments)
+  // Présence d'un tracé pour les segments de transit (non-gpx) : leur geojson
+  // est minuscule (une ligne à 2 points) → requête légère, sans risque de dépasser 5 Mo.
+  const transitGeo = await db.segment.findMany({
+    where: { tripId: params.tripId, type: { not: "gpx" } },
+    select: { id: true, geojson: true },
+  })
+  const geoPresent = new Set(transitGeo.filter((s) => s.geojson).map((s) => s.id))
 
-  // Re-fetch after potential healing so geojson fields are fresh
-  const healedSegments = await db.segment.findMany({
-    where: { tripId: params.tripId },
-    orderBy: { sortOrder: "asc" },
-    // gpxRaw exclu (volumineux → limite Accelerate) ; notes inclus (court, utile pour les visites)
-    select: {
-      id: true, type: true, name: true, geojson: true,
-      distanceM: true, elevationGainM: true, elevationLossM: true,
-      elevationPoints: true, durationMin: true, departureAt: true,
-      arrivalAt: true, origin: true, destination: true,
-      startLat: true, startLon: true, komootUrl: true, notes: true,
-      transportMode: true, terminal: true, showOnMap: true,
-    },
+  // Répare silencieusement les segments de transit créés sans tracé.
+  await healTransitSegments(
+    trip.segments.map((s) => ({
+      id: s.id, type: s.type, origin: s.origin, destination: s.destination,
+      geojson: geoPresent.has(s.id) ? {} : null,
+      showOnMap: s.showOnMap,
+    }))
+  )
+
+  // Champs lourds (geojson + elevationPoints) chargés SEGMENT PAR SEGMENT, avec
+  // une concurrence bornée : chaque réponse Accelerate ne contient qu'un seul
+  // tracé, donc jamais > 5 Mo, quelle que soit la taille du voyage. On lit aussi
+  // startLat/startLon ici pour récupérer les valeurs fraîches après réparation.
+  const heavyById = new Map<
+    string,
+    { geojson: unknown; elevationPoints: unknown; startLat: number | null; startLon: number | null }
+  >()
+  await mapLimit(trip.segments, 6, async (m) => {
+    const h = await db.segment.findUnique({
+      where: { id: m.id },
+      select: { geojson: true, elevationPoints: true, startLat: true, startLon: true },
+    })
+    if (h) heavyById.set(m.id, h)
   })
 
-  const totalDistanceM  = healedSegments.reduce((s, seg) => s + (seg.distanceM      ?? 0), 0)
-  const totalElevGainM  = healedSegments.reduce((s, seg) => s + (seg.elevationGainM ?? 0), 0)
-  const totalElevLossM  = healedSegments.reduce((s, seg) => s + (seg.elevationLossM ?? 0), 0)
+  const totalDistanceM  = trip.segments.reduce((sum, seg) => sum + (seg.distanceM      ?? 0), 0)
+  const totalElevGainM  = trip.segments.reduce((sum, seg) => sum + (seg.elevationGainM ?? 0), 0)
+  const totalElevLossM  = trip.segments.reduce((sum, seg) => sum + (seg.elevationLossM ?? 0), 0)
 
-  const segments = healedSegments.map((s) => ({
-    id:              s.id,
-    type:            s.type,
-    name:            s.name,
-    geojson:         s.geojson ? (s.geojson as unknown as GeoJSON.FeatureCollection) : null,
-    distanceM:       s.distanceM,
-    elevationGainM:  s.elevationGainM,
-    elevationLossM:  s.elevationLossM,
-    elevationPoints: (s.elevationPoints ?? null) as Array<{ distanceM: number; elevationM: number }> | null,
-    durationMin:     s.durationMin,
-    departureAt:     s.departureAt ? s.departureAt.toISOString() : null,
-    arrivalAt:       s.arrivalAt   ? s.arrivalAt.toISOString()   : null,
-    origin:          s.origin,
-    destination:     s.destination,
-    startLat:        s.startLat,
-    startLon:        s.startLon,
-    komootUrl:       s.komootUrl ?? null,
-    notes:           s.notes ?? null,
-    transportMode:   s.transportMode ?? null,
-    terminal:        s.terminal ?? null,
-    showOnMap:       s.showOnMap,
-  }))
+  const segments = trip.segments.map((s) => {
+    const heavy = heavyById.get(s.id)
+    return {
+      id:              s.id,
+      type:            s.type,
+      name:            s.name,
+      geojson:         heavy?.geojson ? (heavy.geojson as unknown as GeoJSON.FeatureCollection) : null,
+      distanceM:       s.distanceM,
+      elevationGainM:  s.elevationGainM,
+      elevationLossM:  s.elevationLossM,
+      elevationPoints: (heavy?.elevationPoints ?? null) as Array<{ distanceM: number; elevationM: number }> | null,
+      durationMin:     s.durationMin,
+      departureAt:     s.departureAt ? s.departureAt.toISOString() : null,
+      arrivalAt:       s.arrivalAt   ? s.arrivalAt.toISOString()   : null,
+      origin:          s.origin,
+      destination:     s.destination,
+      startLat:        heavy?.startLat ?? s.startLat,
+      startLon:        heavy?.startLon ?? s.startLon,
+      komootUrl:       s.komootUrl ?? null,
+      notes:           s.notes ?? null,
+      transportMode:   s.transportMode ?? null,
+      terminal:        s.terminal ?? null,
+      showOnMap:       s.showOnMap,
+    }
+  })
 
   const stopovers = trip.stopovers.map((s) => ({
     id:        s.id,
