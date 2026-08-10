@@ -176,6 +176,18 @@ export async function POST(request: Request): Promise<Response> {
           destination:    typeof destination === "string" && destination.length > 0 ? destination : null,
           durationMin:    typeof durationRaw === "string" && durationRaw ? parseInt(durationRaw, 10) || null : null,
         },
+        // On EXCLUT `gpxRaw` de la valeur retournée : Prisma renvoie toute la
+        // ligne par défaut, et le GPX brut (plusieurs Mo) ferait dépasser la
+        // limite de réponse de 5 Mo d'Accelerate → "Internal server error" sur
+        // les grosses traces. Le client n'utilise pas gpxRaw (servi à part par
+        // /api/segments/[id]/gpx).
+        select: {
+          id: true, type: true, name: true, geojson: true,
+          distanceM: true, elevationGainM: true, elevationLossM: true, elevationPoints: true,
+          durationMin: true, departureAt: true, arrivalAt: true,
+          origin: true, destination: true, startLat: true, startLon: true,
+          komootUrl: true, notes: true, transportMode: true, terminal: true, showOnMap: true,
+        },
       })
 
       return Response.json(segment, { status: 201 })

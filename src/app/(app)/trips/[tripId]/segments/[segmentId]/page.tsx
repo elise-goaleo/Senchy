@@ -81,14 +81,28 @@ export default async function SegmentDetailPage({ params }: PageProps) {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
+  // On EXCLUT `gpxRaw` (GPX brut, plusieurs Mo) : le charger ici ferait dépasser
+  // la limite de réponse de 5 Mo d'Accelerate sur les grosses traces. Sa présence
+  // est vérifiée à part via un `count` (léger), et il est servi par
+  // /api/segments/[id]/gpx.
   const segment = await db.segment.findUnique({
     where: { id: params.segmentId },
-    include: { trip: { select: { userId: true, id: true, name: true } } },
+    select: {
+      id: true, tripId: true, type: true, name: true, geojson: true,
+      distanceM: true, elevationGainM: true, elevationLossM: true, elevationPoints: true,
+      durationMin: true, departureAt: true, arrivalAt: true,
+      origin: true, destination: true, komootUrl: true, notes: true, showOnMap: true,
+      trip: { select: { userId: true, id: true, name: true } },
+    },
   })
 
   if (!segment) notFound()
   if (!(await userHasTripAccess(segment.tripId, session.user.id))) notFound()
   if (segment.trip.id !== params.tripId) notFound()
+
+  // Présence d'un GPX brut sans charger son contenu (évite la limite Accelerate).
+  const hasGpx =
+    (await db.segment.count({ where: { id: params.segmentId, gpxRaw: { not: null } } })) > 0
 
   const geojson = segment.geojson
     ? (segment.geojson as unknown as GeoJSON.FeatureCollection)
@@ -194,7 +208,7 @@ export default async function SegmentDetailPage({ params }: PageProps) {
           {(segment.type === "gpx" || segment.type === "walking") && (
             <DownloadGpxButton
               segmentId={segment.id}
-              hasGpx={segment.gpxRaw != null}
+              hasGpx={hasGpx}
               filename={segmentLabel}
             />
           )}

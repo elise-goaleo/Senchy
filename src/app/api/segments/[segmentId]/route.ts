@@ -8,6 +8,18 @@ import type { GeoJSON } from "geojson"
 
 const MAX_GPX_SIZE = 10 * 1024 * 1024 // 10 MB
 
+// Champs renvoyés au client après création/mise à jour. On EXCLUT `gpxRaw`
+// (GPX brut, plusieurs Mo) : Prisma renvoie toute la ligne par défaut, ce qui
+// ferait dépasser la limite de réponse de 5 Mo d'Accelerate sur les grosses
+// traces. Le GPX brut est servi à part par /api/segments/[id]/gpx.
+const SEGMENT_RETURN_SELECT = {
+  id: true, type: true, name: true, geojson: true,
+  distanceM: true, elevationGainM: true, elevationLossM: true, elevationPoints: true,
+  durationMin: true, departureAt: true, arrivalAt: true,
+  origin: true, destination: true, startLat: true, startLon: true,
+  komootUrl: true, notes: true, transportMode: true, terminal: true, showOnMap: true,
+} as const
+
 // ─── Geocoding helpers (same as POST route) ───────────────────────────────────
 
 async function geocode(place: string): Promise<{ lat: number; lon: number } | null> {
@@ -71,9 +83,11 @@ interface RouteContext {
 // ─── Helper: resolve segment and verify ownership via its trip ────────────────
 
 async function resolveSegment(segmentId: string, userId: string) {
+  // Sélection minimale : jamais `gpxRaw`/`geojson` (lourds) ni le `trip` complet
+  // (dont `coverImageUrl` base64) — sinon la réponse Accelerate peut dépasser 5 Mo.
   const segment = await db.segment.findUnique({
     where: { id: segmentId },
-    include: { trip: true },
+    select: { id: true, tripId: true, type: true, origin: true, destination: true, showOnMap: true },
   })
 
   if (!segment) {
@@ -156,6 +170,7 @@ export async function PATCH(
           startLat:       stats.startLat,
           startLon:       stats.startLon,
         },
+        select: SEGMENT_RETURN_SELECT,
       })
       return Response.json(updated)
     }
@@ -249,6 +264,7 @@ export async function PATCH(
         ...(parsed.data.showOnMap     !== undefined && { showOnMap:     parsed.data.showOnMap }),
         ...geoUpdate,
       },
+      select: SEGMENT_RETURN_SELECT,
     })
 
     return Response.json(updated)

@@ -11,9 +11,12 @@ export async function GET(_req: Request, { params }: RouteContext): Promise<Resp
   const user = await getAuthenticatedUser()
   if (!user) return unauthorized()
 
+  // On ne lit QUE `gpxRaw` (+ de quoi vérifier l'accès et nommer le fichier) :
+  // charger aussi geojson/elevationPoints ferait dépasser 5 Mo (Accelerate) sur
+  // les grosses traces alors qu'on ne sert que le GPX brut.
   const segment = await db.segment.findUnique({
     where: { id: params.segmentId },
-    include: { trip: { select: { userId: true } } },
+    select: { gpxRaw: true, name: true, tripId: true },
   })
 
   if (!segment) return Response.json({ error: "Segment not found" }, { status: 404 })
