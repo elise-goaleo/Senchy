@@ -24,7 +24,9 @@ export default async function ProfilePage() {
 
   const trips = await db.trip.findMany({
     where: { userId: user.id },
-    include: { segments: { select: { distanceM: true } } },
+    // `select` (et non `include`) : on n'a besoin que des distances, surtout PAS
+    // de `coverImageUrl` (base64) qui ferait dépasser 5 Mo (limite Accelerate).
+    select: { segments: { select: { distanceM: true } } },
   })
 
   const totalKm = trips

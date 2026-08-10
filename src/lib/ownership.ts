@@ -1,5 +1,4 @@
 import { db } from "@/lib/db"
-import type { Trip } from "@prisma/client"
 
 /**
  * Condition Prisma « l'utilisateur a accès à ce voyage » :
@@ -25,10 +24,18 @@ export function tripAccessWhere(userId: string) {
 export async function requireTripOwnership(
   tripId: string,
   userId: string
-): Promise<Trip> {
+) {
+  // `select` minimal : surtout PAS `coverImageUrl` (image base64, plusieurs Mo)
+  // — sinon la réponse Accelerate dépasse 5 Mo et TOUTE opération (upload de
+  // segment, étape, POI…) sur un voyage à couverture volumineuse échoue.
   const trip = await db.trip.findUnique({
     where: { id: tripId },
-    include: { collaborators: { where: { userId }, select: { id: true } } },
+    select: {
+      id: true,
+      userId: true,
+      shareToken: true,
+      collaborators: { where: { userId }, select: { id: true } },
+    },
   })
 
   if (!trip) {

@@ -323,11 +323,6 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(segment, { status: 201 })
   } catch (error) {
     console.error("[POST /api/segments]", error)
-    // DIAGNOSTIC TEMPORAIRE — expose l'erreur réelle pour identifier la cause.
-    const e = error as { name?: string; code?: string; message?: string }
-    return Response.json(
-      { error: `DIAG ${e?.name ?? ""} ${e?.code ?? ""}: ${(e?.message ?? String(error)).slice(0, 300)}` },
-      { status: 500 }
-    )
+    return Response.json({ error: "Internal server error" }, { status: 500 })
   }
 }
