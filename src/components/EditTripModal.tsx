@@ -11,6 +11,33 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 
+// Redimensionne/compresse une image côté client avant l'upload : évite de
+// stocker des couvertures trop lourdes (une image de 4 Mo → ~5,4 Mo en base64,
+// au-dessus de la limite de 5 Mo d'Accelerate qui rend la vignette illisible).
+// En cas d'échec (format exotique…), renvoie le fichier d'origine.
+async function resizeImageFile(file: File, maxDim = 1600, quality = 0.82): Promise<File> {
+  try {
+    if (!file.type.startsWith("image/")) return file
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
+    // Déjà petite (dimensions ET poids) → inutile de ré-encoder.
+    if (scale >= 1 && file.size < 1.5 * 1024 * 1024) return file
+    const w = Math.round(bitmap.width * scale)
+    const h = Math.round(bitmap.height * scale)
+    const canvas = document.createElement("canvas")
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality))
+    if (!blob) return file
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" })
+  } catch {
+    return file
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type TripType = "biketrip" | "roadtrip"
@@ -137,13 +164,14 @@ function ModalForm({ mode, trip, onClose }: { mode: "create" | "edit"; trip: Tri
     }
   }, [preview])
 
-  const onDrop = useCallback((accepted: File[]) => {
+  const onDrop = useCallback(async (accepted: File[]) => {
     const file = accepted[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { setError("Image trop volumineuse (max 5 Mo)"); return }
-    setCoverFile(file)
-    setPreview(URL.createObjectURL(file))
     setError(null)
+    const resized = await resizeImageFile(file)
+    setCoverFile(resized)
+    setPreview(URL.createObjectURL(resized))
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

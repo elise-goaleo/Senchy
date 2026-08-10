@@ -34,11 +34,16 @@ export async function GET(
   try {
     await requireTripOwnership(params.tripId, user.id)
 
+    // Sélection légère : le seul consommateur (page « ajouter un segment ») ne
+    // lit que `segments.length`. On EXCLUT coverImageUrl / gpxRaw / geojson pour
+    // rester sous la limite de 5 Mo d'Accelerate.
     const trip = await db.trip.findUnique({
       where: { id: params.tripId },
-      include: {
-        segments: { orderBy: { sortOrder: "asc" } },
-        pois: { orderBy: { createdAt: "asc" } },
+      select: {
+        id: true, userId: true, name: true, type: true, description: true,
+        startDate: true, endDate: true, coverImagePosition: true, createdAt: true,
+        segments: { orderBy: { sortOrder: "asc" }, select: { id: true } },
+        pois: { select: { id: true } },
       },
     })
 
@@ -80,9 +85,22 @@ export async function PATCH(
       const mime = file.type || "image/jpeg"
       const coverImageUrl = `data:${mime};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`
 
+      // Garde-fou : Accelerate plafonne les réponses à 5 Mo. Une couverture dont
+      // le base64 dépasse cette limite deviendrait illisible (vignette en 404) et
+      // ferait planter toute lecture du voyage. Le client redimensionne déjà avant
+      // l'envoi ; ceci est un filet de sécurité.
+      const COVER_MAX_BASE64 = 4.5 * 1024 * 1024
+      if (coverImageUrl.length > COVER_MAX_BASE64) {
+        return Response.json(
+          { error: "Image trop lourde. Choisis une image plus légère (ou de plus petite dimension)." },
+          { status: 413 }
+        )
+      }
+
       const trip = await db.trip.update({
         where: { id: params.tripId },
         data: { coverImageUrl },
+        select: { id: true }, // ne pas renvoyer coverImageUrl (réponse < 5 Mo)
       })
       return Response.json(trip)
     }
@@ -113,6 +131,11 @@ export async function PATCH(
         ...(endDate             !== undefined && {
           endDate: endDate ? new Date(endDate + "T12:00:00Z") : null,
         }),
+      },
+      // Ne pas renvoyer coverImageUrl (base64) → réponse < 5 Mo (Accelerate).
+      select: {
+        id: true, name: true, type: true, description: true,
+        startDate: true, endDate: true, coverImagePosition: true,
       },
     })
 

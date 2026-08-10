@@ -22,11 +22,12 @@ export async function GET(): Promise<Response> {
     const trips = await db.trip.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
-      include: {
+      // `select` sans coverImageUrl (base64) → réponse < 5 Mo (Accelerate).
+      select: {
+        id: true, userId: true, name: true, type: true, description: true,
+        startDate: true, endDate: true, coverImagePosition: true, createdAt: true, shareToken: true,
         _count: { select: { segments: true } },
-        segments: {
-          select: { distanceM: true },
-        },
+        segments: { select: { distanceM: true } },
       },
     })
 

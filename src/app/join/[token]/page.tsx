@@ -22,12 +22,24 @@ export default async function JoinPage({ params }: { params: { token: string } }
       id: true,
       name: true,
       type: true,
-      coverImageUrl: true,
       userId: true,
       user: { select: { name: true, email: true } },
       collaborators: { where: { userId: session.user.id }, select: { id: true } },
     },
   })
+
+  // Couverture lue à part et tolérante : si elle dépasse 5 Mo (limite Accelerate),
+  // on affiche la page sans aperçu plutôt que de la faire planter.
+  let coverImageUrl: string | null = null
+  if (trip) {
+    try {
+      coverImageUrl =
+        (await db.trip.findUnique({ where: { id: trip.id }, select: { coverImageUrl: true } }))
+          ?.coverImageUrl ?? null
+    } catch {
+      coverImageUrl = null
+    }
+  }
 
   // Déjà membre (propriétaire ou collaborateur) → direct au voyage.
   if (trip && (trip.userId === session.user.id || trip.collaborators.length > 0)) {
@@ -54,7 +66,7 @@ export default async function JoinPage({ params }: { params: { token: string } }
           <>
             <div
               className="h-32 bg-slate-200 bg-cover bg-center"
-              style={trip.coverImageUrl ? { backgroundImage: `url(${trip.coverImageUrl})` } : undefined}
+              style={coverImageUrl ? { backgroundImage: `url(${coverImageUrl})` } : undefined}
             />
             <div className="p-8 text-center">
               <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
