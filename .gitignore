@@ -1,6 +1,8 @@
 node_modules/
 .next/
 .env*
+!.env.local.example
+!.env.example
 
 # Artefacts de build
 tsconfig.tsbuildinfo
