@@ -404,9 +404,15 @@ export function SortableSegmentList({
         <SortableContext items={flatSorted.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           <div>
             {groups.map((group, gi) => {
+              // Une réservation couvre une nuit pour chaque jour de [date, endDate[ :
+              // ex. arrivée le 10, départ le 12 → nuits du 10 et du 11 actives.
               const matchingStopover = group.key === "__nodate__"
                 ? null
-                : stopovers.find((s) => s.date.slice(0, 10) === group.key) ?? null
+                : stopovers.find((s) => {
+                    const start = s.date.slice(0, 10)
+                    if (s.endDate) return group.key >= start && group.key < s.endDate.slice(0, 10)
+                    return start === group.key
+                  }) ?? null
               return (
               <div key={group.key}>
                 {/* Date separator — shown for ALL groups (dated + "Sans date") */}
