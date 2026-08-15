@@ -38,12 +38,12 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 }
 
 function segmentLabel(seg: TripSegment) {
-  if (seg.name) return seg.name
-  // Vol : villes (nom seul) plutôt que l'adresse complète
+  // Vol : villes (nom seul) comme titre — `name` sert de n° de vol, affiché à part
   if (seg.type === "flight") {
     const cities = [seg.origin, seg.destination].filter(Boolean).map((c) => cityName(c)).join(" → ")
     return cities || TYPE_LABELS.flight
   }
+  if (seg.name) return seg.name
   if (seg.origin && seg.destination) return `${seg.origin} → ${seg.destination}`
   return TYPE_LABELS[seg.type] ?? "Segment"
 }
@@ -173,6 +173,7 @@ function SortableItem({
               )}
               {seg.type === "flight" && (
                 <>
+                  {seg.name && <span className="text-xs text-slate-400">Vol {seg.name}</span>}
                   {seg.transportMode && <span className="text-xs text-slate-400">{seg.transportMode}</span>}
                   {(seg.departureAt || seg.arrivalAt) && (
                     <span className="text-xs text-slate-400 flex items-center gap-0.5">

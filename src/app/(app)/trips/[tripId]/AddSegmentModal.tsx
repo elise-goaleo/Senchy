@@ -677,6 +677,7 @@ function FlightForm({
   const [date, setDate]         = useState("")
   const [timeDep, setTimeDep]   = useState("")
   const [timeArr, setTimeArr]   = useState("")
+  const [flightNumber, setFlightNumber] = useState("")
   const [terminal, setTerminal] = useState("")
   const [showOnMap, setShowOnMap] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -689,6 +690,7 @@ function FlightForm({
     setIsLoading(true)
     try {
       const body: Record<string, unknown> = { tripId, type: "flight", sortOrder, showOnMap }
+      if (flightNumber.trim()) body.name = flightNumber.trim()
       if (terminal.trim()) body.terminal = terminal.trim()
       if (origin.trim()) body.origin = origin.trim()
       if (dest.trim())   body.destination = dest.trim()
@@ -734,6 +736,11 @@ function FlightForm({
       <div className="space-y-1.5">
         <Label htmlFor="fl-dest">Ville d'arrivée</Label>
         <AddressAutocomplete id="fl-dest" placeholder="Ex : Rome, Italie" value={dest} onChange={(v, c) => { setDest(v); setDestCoords(c) }} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="fl-num">N° de vol</Label>
+        <Input id="fl-num" placeholder="Ex : AF1234" value={flightNumber} onChange={(e) => setFlightNumber(e.target.value)} maxLength={200} />
       </div>
 
       <div className="space-y-1.5">

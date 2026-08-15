@@ -239,6 +239,10 @@ function ModalForm({
             <AddressAutocomplete id="m-dest" value={destination} onChange={(v, c) => { setDestination(v); setDestinationCoords(c) }} placeholder="Ex : Rome, Italie" />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="m-fnum">N° de vol</Label>
+            <Input id="m-fnum" placeholder="Ex : AF1234" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="m-mdate">Date</Label>
             <Input id="m-mdate" type="date" value={mDate} onChange={(e) => setMDate(e.target.value)} />
           </div>
