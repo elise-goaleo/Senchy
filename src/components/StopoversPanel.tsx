@@ -20,7 +20,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
-  GripVertical, Moon, Plus, Trash2, Pencil, X, Link2, Copy, Check,
+  Moon, Plus, Trash2, Pencil, X, Copy, Check, ExternalLink,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -368,21 +368,12 @@ function SortableStopover({
   return (
     <div ref={setNodeRef} style={style}>
       <div className="flex items-center gap-1">
-        {/* Grip */}
-        <button
+        {/* Tile — clic pour ouvrir la modale d'édition, glisser pour réordonner */}
+        <div
           {...attributes}
           {...listeners}
-          className="flex items-center justify-center h-8 w-6 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
-          tabIndex={-1}
-          aria-label="Déplacer"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-
-        {/* Tile — clic pour ouvrir la modale d'édition */}
-        <div
           onClick={onEdit}
-          className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0 cursor-pointer"
+          className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0 cursor-pointer touch-none"
         >
           {/* Icon */}
           <PlatformBadge platform={stop.platform} />
@@ -399,10 +390,12 @@ function SortableStopover({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 text-slate-400 hover:text-[#D15F36] transition-colors"
-                  title="Voir le lien"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:text-[#D15F36] hover:border-[#D15F36]/40 transition-colors"
+                  title="Ouvrir la page de l'hébergement"
                 >
-                  <Link2 className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3" />
+                  Lien
                 </a>
               )}
             </div>
@@ -447,7 +440,7 @@ function SortableStopover({
 
 function DragGhost({ stop }: { stop: Stopover }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white shadow-xl ring-1 ring-terre-300 ml-7">
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white shadow-xl ring-1 ring-terre-300">
       <PlatformBadge platform={stop.platform} />
       <div className="min-w-0">
         <span className="text-sm font-medium text-slate-800 truncate block">
