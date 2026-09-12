@@ -1,22 +1,5 @@
 "use client"
 
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverlay,
-} from "@dnd-kit/core"
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
@@ -347,33 +330,22 @@ export function StopoverModal({
   return mounted && portalRef.current ? createPortal(overlay, portalRef.current) : null
 }
 
-// ── Sortable tile ─────────────────────────────────────────────────────────────
+// ── Stopover tile ─────────────────────────────────────────────────────────────
 
-function SortableStopover({
-  stop, isDragging, onEdit, onDelete,
+function StopoverTile({
+  stop, onEdit, onDelete,
 }: {
-  stop:       Stopover
-  isDragging: boolean
-  onEdit:     () => void
-  onDelete:   () => void
+  stop:   Stopover
+  onEdit: () => void
+  onDelete: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: stop.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-  }
-
   return (
-    <div ref={setNodeRef} style={style}>
+    <div>
       <div className="flex items-center gap-1">
-        {/* Tile — clic pour ouvrir la modale d'édition, glisser pour réordonner */}
+        {/* Tile — clic pour ouvrir la modale d'édition */}
         <div
-          {...attributes}
-          {...listeners}
           onClick={onEdit}
-          className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0 cursor-pointer touch-none"
+          className="group flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors min-w-0 cursor-pointer"
         >
           {/* Icon */}
           <PlatformBadge platform={stop.platform} />
@@ -390,7 +362,6 @@ function SortableStopover({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
                   className="shrink-0 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500 hover:text-[#D15F36] hover:border-[#D15F36]/40 transition-colors"
                   title="Ouvrir la page de l'hébergement"
                 >
@@ -415,8 +386,8 @@ function SortableStopover({
             )}
           </div>
 
-          {/* Actions — on hover */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {/* Actions — toujours visibles sur mobile, au survol sur desktop */}
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); onEdit() }}
               className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
@@ -436,58 +407,13 @@ function SortableStopover({
   )
 }
 
-// ── Drag ghost ────────────────────────────────────────────────────────────────
-
-function DragGhost({ stop }: { stop: Stopover }) {
-  return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white shadow-xl ring-1 ring-terre-300">
-      <PlatformBadge platform={stop.platform} />
-      <div className="min-w-0">
-        <span className="text-sm font-medium text-slate-800 truncate block">
-          {stop.name || stop.place || "Sans nom"}
-        </span>
-        <span className="text-xs text-slate-400">{formatDateRange(stop.date, stop.endDate)}</span>
-      </div>
-    </div>
-  )
-}
-
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function StopoversPanel({ tripId, stopovers, onChange }: Props) {
-  const [activeId, setActiveId] = useState<string | null>(null)
   const [editId,   setEditId]   = useState<string | null>(null)
   const [adding,   setAdding]   = useState(false)
   const [saving,   setSaving]   = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  )
-
-  const activeStop = stopovers.find((s) => s.id === activeId) ?? null
-
-  // ── DnD ───────────────────────────────────────────────────────────────────
-
-  function handleDragStart(e: DragStartEvent) { setActiveId(e.active.id as string) }
-
-  async function handleDragEnd(e: DragEndEvent) {
-    setActiveId(null)
-    const { active, over } = e
-    if (!over || active.id === over.id) return
-
-    const oldIndex = stopovers.findIndex((s) => s.id === active.id)
-    const newIndex = stopovers.findIndex((s) => s.id === over.id)
-    const reordered = arrayMove(stopovers, oldIndex, newIndex)
-
-    onChange(reordered)
-
-    await fetch(`/api/trips/${tripId}/stopovers`, {
-      method:  "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ order: reordered.map((s) => s.id) }),
-    })
-  }
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
@@ -601,31 +527,17 @@ export function StopoversPanel({ tripId, stopovers, onChange }: Props) {
         </div>
       )}
 
-      {/* Sortable list */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={stopovers.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-0.5">
-            {stopovers.map((stop) => (
-              <SortableStopover
-                key={stop.id}
-                stop={stop}
-                isDragging={activeId === stop.id}
-                onEdit={() => { setSaveError(null); setEditId(stop.id) }}
-                onDelete={() => handleDelete(stop.id)}
-              />
-            ))}
-          </div>
-        </SortableContext>
-
-        <DragOverlay>
-          {activeStop && <DragGhost stop={activeStop} />}
-        </DragOverlay>
-      </DndContext>
+      {/* List */}
+      <div className="space-y-0.5">
+        {stopovers.map((stop) => (
+          <StopoverTile
+            key={stop.id}
+            stop={stop}
+            onEdit={() => { setSaveError(null); setEditId(stop.id) }}
+            onDelete={() => handleDelete(stop.id)}
+          />
+        ))}
+      </div>
 
       {/* Add modal */}
       {adding && (
