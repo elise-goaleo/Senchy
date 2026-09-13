@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
-  Moon, Plus, Trash2, Pencil, X, Copy, Check, ExternalLink,
+  Moon, Plus, Trash2, Pencil, X, Copy, Check, ExternalLink, MapPin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -146,6 +146,37 @@ function CopyLinkButton({ url }: { url: string }) {
   )
 }
 
+function MapsLinkButton({ query }: { query: string }) {
+  const q = query.trim()
+  const hasQuery = q.length > 0
+  const href = hasQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+    : undefined
+
+  if (!hasQuery) {
+    return (
+      <span
+        title="Renseignez une adresse pour l'ouvrir dans Google Maps"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 text-slate-200 cursor-not-allowed"
+      >
+        <MapPin className="h-4 w-4" />
+      </span>
+    )
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Ouvrir dans Google Maps"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-[#D15F36] hover:border-slate-300 transition-colors"
+    >
+      <MapPin className="h-4 w-4" />
+    </a>
+  )
+}
+
 export function StopoverModal({
   title, initial, onSave, onClose, loading, error,
 }: {
@@ -270,12 +301,16 @@ export function StopoverModal({
             <Label htmlFor="s-place">
               Adresse <span className="text-slate-400 font-normal">(optionnel)</span>
             </Label>
-            <AddressAutocomplete
-              id="s-place"
-              placeholder="14 rue de la Paix, 75002 Paris…"
-              value={place}
-              onChange={(value, c) => { setPlace(value); setCoords(c) }}
-            />
+            <div className="flex gap-2">
+              <AddressAutocomplete
+                id="s-place"
+                className="flex-1"
+                placeholder="14 rue de la Paix, 75002 Paris…"
+                value={place}
+                onChange={(value, c) => { setPlace(value); setCoords(c) }}
+              />
+              <MapsLinkButton query={coords ? `${coords.lat},${coords.lon}` : place} />
+            </div>
           </div>
 
           <div className="space-y-2">
