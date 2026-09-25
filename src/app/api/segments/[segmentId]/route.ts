@@ -135,8 +135,9 @@ export async function PATCH(
 
     // ── GPX replacement (multipart) ──────────────────────────────────────────
     if (contentType.includes("multipart/form-data")) {
-      if (segment.type !== "gpx") {
-        return Response.json({ error: "Ce segment n'est pas un segment GPX" }, { status: 400 })
+      // Le GPX est accepté sur les segments vélo (gpx) et à pied (walking).
+      if (segment.type !== "gpx" && segment.type !== "walking") {
+        return Response.json({ error: "Ce segment ne peut pas recevoir de trace GPX" }, { status: 400 })
       }
 
       const formData = await request.formData()
@@ -190,6 +191,13 @@ export async function PATCH(
     // (covers name changes, missing geojson on old segments, etc.)
     let geoUpdate: Record<string, unknown> = {}
 
+    // Une étape à pied peut porter une vraie trace GPX : dans ce cas on ne
+    // reconstruit PAS un tracé en ligne droite (origine → destination) qui
+    // écraserait la trace importée.
+    const walkingHasGpx =
+      segment.type === "walking" &&
+      (await db.segment.count({ where: { id: params.segmentId, gpxRaw: { not: null } } })) > 0
+
     if (segment.type === "visit") {
       // Point unique (visite) : coords depuis l'adresse
       const d = parsed.data
@@ -199,7 +207,7 @@ export async function PATCH(
         const c = d.origin ? await geocode(d.origin) : null
         geoUpdate = { startLat: c?.lat ?? null, startLon: c?.lon ?? null }
       }
-    } else if (segment.type !== "gpx") {
+    } else if (segment.type !== "gpx" && !walkingHasGpx) {
       const d = parsed.data
       const effectiveOrigin      = d.origin      !== undefined ? d.origin      : segment.origin
       const effectiveDestination = d.destination !== undefined ? d.destination : segment.destination

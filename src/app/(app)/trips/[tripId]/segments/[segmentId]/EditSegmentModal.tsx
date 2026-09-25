@@ -369,10 +369,10 @@ function ModalForm({
         </div>
       )}
 
-      {/* GPX replacement */}
-      {segment.type === "gpx" && (
+      {/* GPX — vélo (gpx) & à pied (walking) */}
+      {(segment.type === "gpx" || segment.type === "walking") && (
         <div className="space-y-2">
-          <Label>Remplacer la trace GPX</Label>
+          <Label>{segment.type === "walking" ? "Trace GPX (optionnel)" : "Remplacer la trace GPX"}</Label>
           <div
             {...getRootProps()}
             className={cn(
@@ -393,9 +393,13 @@ function ModalForm({
               <div className="flex flex-col items-center gap-1.5">
                 <Upload className="h-8 w-8 text-slate-300" />
                 <p className="text-sm text-slate-500">
-                  {isDragActive ? "Déposez le fichier" : "Glissez un .gpx pour remplacer la trace"}
+                  {isDragActive
+                    ? "Déposez le fichier"
+                    : segment.type === "walking"
+                    ? "Glissez un .gpx pour ajouter une trace"
+                    : "Glissez un .gpx pour remplacer la trace"}
                 </p>
-                <p className="text-xs text-slate-400">Laissez vide pour conserver l'actuelle</p>
+                <p className="text-xs text-slate-400">Laissez vide pour conserver la trace actuelle</p>
               </div>
             )}
           </div>
