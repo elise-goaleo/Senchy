@@ -5,6 +5,7 @@ import { getOrCreateExplorationsTrip, parseExplorations } from "@/lib/ridesMap"
 
 const explorationsSchema = z.object({
   countries: z.array(z.string().min(2).max(3)).max(300),
+  regions:   z.array(z.string().min(1).max(120)).max(3000),
   cities: z
     .array(
       z.object({
@@ -44,9 +45,10 @@ export async function PUT(request: Request): Promise<Response> {
       )
     }
 
-    // Déduplique les pays et borne les données stockées.
+    // Déduplique pays et régions, borne les données stockées.
     const countries = Array.from(new Set(parsed.data.countries))
-    const data = { countries, cities: parsed.data.cities }
+    const regions = Array.from(new Set(parsed.data.regions))
+    const data = { countries, regions, cities: parsed.data.cities }
 
     const tripId = await getOrCreateExplorationsTrip(user.id)
     await db.trip.update({

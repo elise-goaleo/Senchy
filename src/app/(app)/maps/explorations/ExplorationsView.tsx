@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Compass, Globe2, MapPin, X, Search } from "lucide-react"
+import { Compass, Globe2, MapPin, X, Search, Loader2, Map as MapIcon } from "lucide-react"
 import { DynamicExplorationsMap } from "@/components/map/DynamicExplorationsMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
 import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
@@ -16,9 +16,12 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
   const { layer, setLayer, layers } = useMapLayer()
 
   const [countries, setCountries] = useState<string[]>(initial.countries)
+  const [regions, setRegions]     = useState<string[]>(initial.regions)
   const [cities, setCities]       = useState<City[]>(initial.cities)
   const [countryList, setCountryList] = useState<Country[]>([])
 
+  const [mode, setMode]                 = useState<"pays" | "regions">("pays")
+  const [regionsLoading, setRegionsLoading] = useState(false)
   const [countryQuery, setCountryQuery] = useState("")
   const [cityInput, setCityInput]       = useState("")
   const [saveState, setSaveState]       = useState<"idle" | "saving" | "saved" | "error">("idle")
@@ -30,9 +33,17 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
   }, [countryList])
 
   const onCountriesLoaded = useCallback((list: Country[]) => setCountryList(list), [])
+  const onRegionsLoading = useCallback((loading: boolean) => setRegionsLoading(loading), [])
 
   const toggleCountry = useCallback((code: string) => {
     setCountries((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]))
+    // Retirer un pays efface aussi ses régions sélectionnées (cohérence).
+    setRegions((rs) => rs.filter((k) => !k.startsWith(code + ":")))
+  }, [])
+
+  const toggleRegion = useCallback((key: string) => {
+    if (!key) return
+    setRegions((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]))
   }, [])
 
   // ── Sauvegarde automatique (débounce) ────────────────────────────────────────
@@ -45,7 +56,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
         const res = await fetch("/api/explorations", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ countries, cities }),
+          body: JSON.stringify({ countries, regions, cities }),
         })
         setSaveState(res.ok ? "saved" : "error")
       } catch {
@@ -53,7 +64,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
       }
     }, 700)
     return () => clearTimeout(t)
-  }, [countries, cities])
+  }, [countries, regions, cities])
 
   // ── Ajout de ville depuis l'autocomplétion d'adresse ─────────────────────────
   function handleCityPick(value: string, coords: AddressCoords | null) {
@@ -86,6 +97,19 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
     [countries, nameByCode]
   )
 
+  const visitedRegions = useMemo(
+    () =>
+      regions
+        .map((key) => {
+          const idx = key.indexOf(":")
+          const iso = idx >= 0 ? key.slice(0, idx) : key
+          const name = idx >= 0 ? key.slice(idx + 1) : key
+          return { key, name, country: nameByCode.get(iso) ?? iso }
+        })
+        .sort((a, b) => a.country.localeCompare(b.country, "fr") || a.name.localeCompare(b.name, "fr")),
+    [regions, nameByCode]
+  )
+
   const saveLabel =
     saveState === "saving" ? "Enregistrement…"
     : saveState === "saved" ? "Enregistré"
@@ -105,13 +129,34 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               <h1 className="text-xl font-bold text-slate-900">Mes explorations</h1>
             </div>
             <p className="text-sm text-slate-500">
-              Cliquez un pays sur la carte pour le marquer visité, et ajoutez les villes ci-dessous.
+              {mode === "pays"
+                ? "Cliquez un pays sur la carte pour le marquer visité, et ajoutez les villes ci-dessous."
+                : "Cliquez une région d'un pays visité pour la marquer. Passez en mode Pays pour ajouter un pays."}
             </p>
             {saveLabel && (
               <p className={cn("text-xs mt-1", saveState === "error" ? "text-red-600" : "text-slate-400")}>
                 {saveLabel}
               </p>
             )}
+
+            {/* Bascule Pays / Régions */}
+            <div className="mt-3 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+              {(["pays", "regions"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                    mode === m ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  {m === "pays" ? "Pays" : "Régions"}
+                </button>
+              ))}
+              {mode === "regions" && regionsLoading && (
+                <span className="flex items-center px-2 text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /></span>
+              )}
+            </div>
           </div>
 
           {/* Pays */}
@@ -172,6 +217,47 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
             )}
           </section>
 
+          {/* Régions */}
+          <section className="space-y-2">
+            <div className="flex items-center gap-2">
+              <MapIcon className="h-4 w-4 text-slate-400" />
+              <h2 className="text-sm font-semibold text-slate-700">
+                Régions visitées <span className="text-slate-400 font-normal">({visitedRegions.length})</span>
+              </h2>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              {countries.length === 0
+                ? "Ajoutez d'abord un pays, puis passez en mode Régions pour cliquer ses régions."
+                : mode === "regions"
+                ? "Cliquez une région sur la carte pour l'ajouter ou la retirer."
+                : "Passez en mode Régions pour cliquer les régions des pays visités."}
+            </p>
+
+            {visitedRegions.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {visitedRegions.map((r) => (
+                  <span
+                    key={r.key}
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 pl-2.5 pr-1 py-1 text-xs font-medium text-emerald-800"
+                    title={r.country}
+                  >
+                    {r.name}
+                    <button
+                      onClick={() => toggleRegion(r.key)}
+                      className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-200 transition-colors"
+                      title="Retirer"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">Aucune région pour le moment.</p>
+            )}
+          </section>
+
           {/* Villes */}
           <section className="space-y-2">
             <div className="flex items-center gap-2">
@@ -222,8 +308,12 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           <DynamicExplorationsMap
             visited={countries}
             cities={cities}
+            mode={mode}
+            regions={regions}
             onToggleCountry={toggleCountry}
+            onToggleRegion={toggleRegion}
             onCountriesLoaded={onCountriesLoaded}
+            onRegionsLoading={onRegionsLoading}
             tileUrl={layer.url}
             tileAttribution={layer.attribution}
             height="100%"
