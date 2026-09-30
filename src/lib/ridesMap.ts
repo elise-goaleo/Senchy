@@ -41,9 +41,10 @@ export interface ExplorationsData {
   countries: string[]                                    // codes ISO A3 (ex. "FRA")
   regions:   string[]                                    // clés "ISO3:Nom" (ex. "FRA:Bretagne")
   cities:    Array<{ name: string; lat: number; lon: number }>
+  parks:     Array<{ osm: string; name: string; lat: number; lon: number }> // osm = "R1024498"
 }
 
-export const EMPTY_EXPLORATIONS: ExplorationsData = { countries: [], regions: [], cities: [] }
+export const EMPTY_EXPLORATIONS: ExplorationsData = { countries: [], regions: [], cities: [], parks: [] }
 
 /** Récupère (ou crée) le voyage technique des explorations. Renvoie son id. */
 export async function getOrCreateExplorationsTrip(userId: string): Promise<string> {
@@ -79,7 +80,14 @@ export function parseExplorations(description: string | null): ExplorationsData 
             typeof c.lat === "number" && typeof c.lon === "number"
         )
       : []
-    return { countries, regions, cities }
+    const parks = Array.isArray(raw.parks)
+      ? raw.parks.filter(
+          (p): p is { osm: string; name: string; lat: number; lon: number } =>
+            !!p && typeof p.osm === "string" && typeof p.name === "string" &&
+            typeof p.lat === "number" && typeof p.lon === "number"
+        )
+      : []
+    return { countries, regions, cities, parks }
   } catch {
     return { ...EMPTY_EXPLORATIONS }
   }

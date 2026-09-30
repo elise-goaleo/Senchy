@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
-  Compass, Globe2, MapPin, X, Search, Loader2, Map as MapIcon,
+  Compass, Globe2, MapPin, X, Search, Loader2, Map as MapIcon, Trees,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react"
 import { DynamicExplorationsMap } from "@/components/map/DynamicExplorationsMap"
@@ -14,7 +14,9 @@ import type { ExplorationsData } from "@/lib/ridesMap"
 import { cn } from "@/lib/utils"
 
 type City = ExplorationsData["cities"][number]
+type Park = ExplorationsData["parks"][number]
 type Country = { code: string; name: string }
+type ParkResult = { osm: string; name: string; lat: number; lon: number; kind: string }
 
 export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
   const { layer, setLayer, layers } = useMapLayer()
@@ -22,15 +24,20 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
   const [countries, setCountries] = useState<string[]>(initial.countries)
   const [regions, setRegions]     = useState<string[]>(initial.regions)
   const [cities, setCities]       = useState<City[]>(initial.cities)
+  const [parks, setParks]         = useState<Park[]>(initial.parks)
   const [countryList, setCountryList] = useState<Country[]>([])
 
-  const [mode, setMode]                 = useState<"pays" | "regions">("pays")
+  const [parkQuery, setParkQuery]     = useState("")
+  const [parkResults, setParkResults] = useState<ParkResult[]>([])
+  const [parkLoading, setParkLoading] = useState(false)
+
+  const [mode, setMode]                 = useState<"pays" | "regions" | "parks">("pays")
   const [regionsLoading, setRegionsLoading] = useState(false)
   const [countryQuery, setCountryQuery] = useState("")
   const [cityInput, setCityInput]       = useState("")
   const [saveState, setSaveState]       = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [panelOpen, setPanelOpen]       = useState(true)
-  const [openModal, setOpenModal]       = useState<null | "countries" | "regions" | "cities">(null)
+  const [openModal, setOpenModal]       = useState<null | "countries" | "regions" | "cities" | "parks">(null)
 
   const nameByCode = useMemo(() => {
     const m = new Map<string, string>()
@@ -52,6 +59,38 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
     setRegions((prev) => (prev.includes(key) ? prev.filter((r) => r !== key) : [...prev, key]))
   }, [])
 
+  const addPark = useCallback((p: ParkResult) => {
+    setParks((prev) =>
+      prev.some((x) => x.osm === p.osm) ? prev : [...prev, { osm: p.osm, name: p.name, lat: p.lat, lon: p.lon }]
+    )
+    setParkQuery("")
+    setParkResults([])
+  }, [])
+
+  const removePark = useCallback((osm: string) => {
+    setParks((prev) => prev.filter((p) => p.osm !== osm))
+  }, [])
+
+  // Recherche de parcs (débounce).
+  useEffect(() => {
+    const q = parkQuery.trim()
+    if (q.length < 3) { setParkResults([]); setParkLoading(false); return }
+    let cancelled = false
+    setParkLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/parks/search?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        if (!cancelled) setParkResults(Array.isArray(data) ? data : [])
+      } catch {
+        if (!cancelled) setParkResults([])
+      } finally {
+        if (!cancelled) setParkLoading(false)
+      }
+    }, 400)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [parkQuery])
+
   // ── Sauvegarde automatique (débounce) ────────────────────────────────────────
   const firstRender = useRef(true)
   useEffect(() => {
@@ -62,7 +101,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
         const res = await fetch("/api/explorations", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ countries, regions, cities }),
+          body: JSON.stringify({ countries, regions, cities, parks }),
         })
         setSaveState(res.ok ? "saved" : "error")
       } catch {
@@ -70,7 +109,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
       }
     }, 700)
     return () => clearTimeout(t)
-  }, [countries, regions, cities])
+  }, [countries, regions, cities, parks])
 
   // ── Ajout de ville depuis l'autocomplétion d'adresse ─────────────────────────
   function handleCityPick(value: string, coords: AddressCoords | null) {
@@ -145,7 +184,9 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
             <p className="text-sm text-slate-500">
               {mode === "pays"
                 ? "Cliquez un pays sur la carte pour le marquer visité, et ajoutez les villes ci-dessous."
-                : "Cliquez une région d'un pays visité pour la marquer. Passez en mode Pays pour ajouter un pays."}
+                : mode === "regions"
+                ? "Cliquez une région d'un pays visité pour la marquer. Passez en mode Pays pour ajouter un pays."
+                : "Zoomez sur la carte : les parcs à proximité apparaissent en points — cliquez pour les ajouter. Cliquez un parc rempli pour le retirer."}
             </p>
             {saveLabel && (
               <p className={cn("text-xs mt-1", saveState === "error" ? "text-red-600" : "text-slate-400")}>
@@ -153,9 +194,9 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               </p>
             )}
 
-            {/* Bascule Pays / Régions */}
+            {/* Bascule Pays / Régions / Parcs */}
             <div className="mt-3 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
-              {(["pays", "regions"] as const).map((m) => (
+              {(["pays", "regions", "parks"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMode(m)}
@@ -164,7 +205,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
                     mode === m ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
-                  {m === "pays" ? "Pays" : "Régions"}
+                  {m === "pays" ? "Pays" : m === "regions" ? "Régions" : "Parcs"}
                 </button>
               ))}
               {mode === "regions" && regionsLoading && (
@@ -278,6 +319,60 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               <p className="text-xs text-slate-400">Aucune ville pour le moment.</p>
             )}
           </section>
+
+          {/* Parcs / nature */}
+          <section className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Trees className="h-4 w-4 text-slate-400" />
+              <h2 className="text-sm font-semibold text-slate-700 flex-1">
+                Parcs / nature <span className="text-slate-400 font-normal">({parks.length})</span>
+              </h2>
+              {parks.length > 0 && (
+                <button
+                  onClick={() => setOpenModal("parks")}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Voir tout
+                </button>
+              )}
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <input
+                value={parkQuery}
+                onChange={(e) => setParkQuery(e.target.value)}
+                placeholder="Ajouter un parc national, une réserve…"
+                className="w-full rounded-xl border border-slate-200 pl-9 pr-8 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+              />
+              {parkLoading && (
+                <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-slate-400" />
+              )}
+              {parkResults.length > 0 && (
+                <ul className="absolute z-[60] top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                  {parkResults.map((p) => (
+                    <li key={p.osm}>
+                      <button
+                        type="button"
+                        onClick={() => addPark(p)}
+                        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-emerald-50 transition-colors"
+                      >
+                        <Trees className="h-3.5 w-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block text-sm text-slate-800 truncate">{p.name}</span>
+                          {p.kind && <span className="block text-xs text-slate-400">{p.kind.replace(/_/g, " ")}</span>}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {parks.length === 0 && (
+              <p className="text-xs text-slate-400">Aucun parc pour le moment.</p>
+            )}
+          </section>
         </div>
       </aside>
       )}
@@ -302,10 +397,13 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           <DynamicExplorationsMap
             visited={countries}
             cities={cities}
+            parks={parks}
             mode={mode}
             regions={regions}
             onToggleCountry={toggleCountry}
             onToggleRegion={toggleRegion}
+            onAddPark={addPark}
+            onRemovePark={removePark}
             onCountriesLoaded={onCountriesLoaded}
             onRegionsLoading={onRegionsLoading}
             tileUrl={layer.url}
@@ -337,6 +435,14 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           title="Villes visitées"
           items={cities.map((c, i) => ({ key: String(i), primary: c.name }))}
           onRemove={(k) => setCities((prev) => prev.filter((_, idx) => idx !== Number(k)))}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "parks" && (
+        <ListModal
+          title="Parcs / nature"
+          items={parks.map((p) => ({ key: p.osm, primary: p.name }))}
+          onRemove={(k) => removePark(k)}
           onClose={() => setOpenModal(null)}
         />
       )}

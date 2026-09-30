@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
@@ -24,10 +24,13 @@ interface CountryProps { name?: string }
 export interface ExplorationsMapProps {
   visited:          string[]                              // codes ISO A3
   cities:           Array<{ name: string; lat: number; lon: number }>
-  mode:             "pays" | "regions"
+  parks:            Array<{ osm: string; name: string; lat: number; lon: number }>
+  mode:             "pays" | "regions" | "parks"
   regions:          string[]                              // clés "ISO3:Nom"
   onToggleCountry:  (code: string) => void
   onToggleRegion:   (key: string) => void
+  onAddPark:        (p: { osm: string; name: string; lat: number; lon: number; kind: string }) => void
+  onRemovePark:     (osm: string) => void
   onCountriesLoaded?: (list: Array<{ code: string; name: string }>) => void
   onRegionsLoading?: (loading: boolean) => void
   tileUrl?:         string
@@ -45,6 +48,57 @@ function ResizeHandler() {
     return () => ro.disconnect()
   }, [map])
   return null
+}
+
+// ── Points de parcs présents dans la vue (mode Parcs) ─────────────────────────
+function ParksInView({
+  enabled, selectedOsm, onAdd,
+}: {
+  enabled: boolean
+  selectedOsm: Set<string>
+  onAdd: (p: { osm: string; name: string; lat: number; lon: number; kind: string }) => void
+}) {
+  const map = useMap()
+  const [items, setItems] = useState<Array<{ osm: string; name: string; lat: number; lon: number; kind: string }>>([])
+
+  useEffect(() => {
+    if (!enabled) { setItems([]); return }
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const update = () => {
+      if (map.getZoom() < 7) { setItems([]); return } // trop loin : on n'interroge pas
+      const b = map.getBounds()
+      const bbox = `${b.getSouth().toFixed(4)},${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)}`
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/parks/inview?bbox=${bbox}`)
+          const data = await res.json()
+          if (!cancelled) setItems(Array.isArray(data) ? data : [])
+        } catch { if (!cancelled) setItems([]) }
+      }, 500)
+    }
+    map.on("moveend", update)
+    update()
+    return () => { cancelled = true; if (timer) clearTimeout(timer); map.off("moveend", update) }
+  }, [enabled, map])
+
+  if (!enabled) return null
+  return (
+    <>
+      {items.filter((p) => !selectedOsm.has(p.osm)).map((p) => (
+        <CircleMarker
+          key={p.osm}
+          center={[p.lat, p.lon]}
+          radius={6}
+          pathOptions={{ color: "#15803d", weight: 2, fillColor: "#ffffff", fillOpacity: 1 }}
+          eventHandlers={{ click: () => onAdd(p) }}
+        >
+          <Tooltip>{p.name}</Tooltip>
+        </CircleMarker>
+      ))}
+    </>
+  )
 }
 
 // ── Cadrage initial sur les données existantes ────────────────────────────────
@@ -80,7 +134,8 @@ function InitialFit({
 }
 
 export default function ExplorationsMap({
-  visited, cities, mode, regions, onToggleCountry, onToggleRegion,
+  visited, cities, parks, mode, regions, onToggleCountry, onToggleRegion,
+  onAddPark, onRemovePark,
   onCountriesLoaded, onRegionsLoading,
   tileUrl, tileAttribution, height = "100%",
 }: ExplorationsMapProps) {
@@ -143,6 +198,35 @@ export default function ExplorationsMap({
     return () => { cancelled = true }
   }, [mode, visited, regions, regionCountries, onRegionsLoading])
 
+  // ── Parcs / nature : contours récupérés par lot (batch lookup OSM) ───────────
+  const parksCache = useRef<Map<string, Feature | null>>(new Map())
+  const [parksFc, setParksFc] = useState<FeatureCollection | null>(null)
+  const parksKey = useMemo(() => parks.map((p) => p.osm).slice().sort().join(","), [parks])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const cache = parksCache.current
+      const toLoad = parks.map((p) => p.osm).filter((osm) => !cache.has(osm))
+      if (toLoad.length > 0) {
+        try {
+          const res = await fetch(`/api/parks/geometry?ids=${encodeURIComponent(toLoad.join(","))}`)
+          const data = (await res.json()) as FeatureCollection
+          for (const f of data.features ?? []) {
+            const osm = String((f.properties as { osm?: string })?.osm ?? "")
+            if (osm) cache.set(osm, f as Feature)
+          }
+          // Marque les ids sans géométrie pour éviter de les recharger en boucle.
+          for (const osm of toLoad) if (!cache.has(osm)) cache.set(osm, null)
+        } catch { /* on ignore, on réessaiera au prochain changement */ }
+      }
+      if (cancelled) return
+      const features = parks.map((p) => cache.get(p.osm)).filter((f): f is Feature => !!f)
+      setParksFc({ type: "FeatureCollection", features })
+    })()
+    return () => { cancelled = true }
+  }, [parksKey, parks])
+
   useEffect(() => {
     let cancelled = false
     fetch(WORLD_GEOJSON_URL)
@@ -162,6 +246,7 @@ export default function ExplorationsMap({
 
   const visitedSet = useMemo(() => new Set(visited), [visited])
   const regionsSet = useMemo(() => new Set(regions), [regions])
+  const selectedParkOsm = useMemo(() => new Set(parks.map((p) => p.osm)), [parks])
   const isRegions = mode === "regions"
   // Force le recalcul des styles/handlers quand la sélection ou le mode change.
   const geoKey = useMemo(
@@ -196,9 +281,9 @@ export default function ExplorationsMap({
             key={geoKey}
             data={fc}
             style={(feature?: Feature<Geometry, CountryProps>) => {
-              // En mode Régions, aucun pays n'est rempli (sinon il paraît
-              // sélectionné) : contour neutre uniquement.
-              if (isRegions) {
+              // Hors mode Pays (Régions/Parcs), aucun pays n'est rempli (sinon il
+              // paraît sélectionné) : contour neutre uniquement.
+              if (mode !== "pays") {
                 return { fillColor: "#94a3b8", fillOpacity: 0.04, color: "#cbd5e1", weight: 0.5 }
               }
               const code = feature ? String(feature.id) : ""
@@ -216,9 +301,9 @@ export default function ExplorationsMap({
             onEachFeature={(feature, layer) => {
               const code = String(feature.id)
               const name = (feature.properties as CountryProps)?.name ?? code
-              // Non cliquable si : mode Régions (on clique les régions), ou pays
-              // ayant déjà des régions sélectionnées (on ne gère que ses régions).
-              if (!isRegions && !regionCountries.has(code)) {
+              // Cliquable seulement en mode Pays, et pas pour un pays ayant déjà
+              // des régions sélectionnées (on ne gère alors que ses régions).
+              if (mode === "pays" && !regionCountries.has(code)) {
                 const greenFill = () => visitedSet.has(code) && !regionCountries.has(code)
                 layer.on({
                   click: () => onToggleCountry(code),
@@ -276,6 +361,25 @@ export default function ExplorationsMap({
             }}
           />
         )}
+
+        {/* Parcs / régions naturelles — surfaces remplies. En mode Parcs, un clic
+            sur le parc le retire. */}
+        {parksFc && parksFc.features.length > 0 && (
+          <GeoJSON
+            key={`parks|${mode}|${parksKey}|${parksFc.features.length}`}
+            data={parksFc}
+            style={() => ({ fillColor: "#16a34a", fillOpacity: 0.45, color: "#15803d", weight: 1.4, dashArray: "4 3" })}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties as { name?: string; osm?: string }
+              if (props?.name) layer.bindTooltip(props.name, { sticky: true })
+              if (mode === "parks" && props?.osm) {
+                layer.on({ click: () => onRemovePark(String(props.osm)) })
+              }
+            }}
+          />
+        )}
+
+        <ParksInView enabled={mode === "parks"} selectedOsm={selectedParkOsm} onAdd={onAddPark} />
 
         {cities.map((c, i) => (
           <CircleMarker

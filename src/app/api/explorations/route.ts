@@ -15,6 +15,16 @@ const explorationsSchema = z.object({
       })
     )
     .max(2000),
+  parks: z
+    .array(
+      z.object({
+        osm:  z.string().min(2).max(20),
+        name: z.string().min(1).max(200),
+        lat:  z.number().min(-90).max(90),
+        lon:  z.number().min(-180).max(180),
+      })
+    )
+    .max(1000),
 })
 
 // ─── GET /api/explorations ────────────────────────────────────────────────────
@@ -48,7 +58,7 @@ export async function PUT(request: Request): Promise<Response> {
     // Déduplique pays et régions, borne les données stockées.
     const countries = Array.from(new Set(parsed.data.countries))
     const regions = Array.from(new Set(parsed.data.regions))
-    const data = { countries, regions, cities: parsed.data.cities }
+    const data = { countries, regions, cities: parsed.data.cities, parks: parsed.data.parks }
 
     const tripId = await getOrCreateExplorationsTrip(user.id)
     await db.trip.update({
