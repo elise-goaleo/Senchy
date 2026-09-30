@@ -7,6 +7,7 @@ import { CreateTripModal } from "@/components/EditTripModal"
 import { CollapsibleTripSection } from "@/components/CollapsibleTripSection"
 import { QuickTripImport } from "@/components/QuickTripImport"
 import { tripAccessWhere } from "@/lib/ownership"
+import { HIDDEN_TRIP_TYPES } from "@/lib/ridesMap"
 import { Plus, Map } from "lucide-react"
 
 export const metadata = {
@@ -21,7 +22,8 @@ export default async function DashboardPage() {
   }
 
   const trips = await db.trip.findMany({
-    where: tripAccessWhere(session.user.id),
+    // On masque les voyages techniques (ex. « Mes sorties vélo »).
+    where: { ...tripAccessWhere(session.user.id), type: { notIn: HIDDEN_TRIP_TYPES } },
     orderBy: { createdAt: "desc" },
     // On sélectionne explicitement les champs affichés et on EXCLUT
     // `coverImageUrl` (image base64 volumineuse) : le charger pour tous les

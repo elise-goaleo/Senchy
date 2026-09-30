@@ -6,6 +6,7 @@ import { Mail, Calendar, Route } from "lucide-react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { AvatarUpload } from "./AvatarUpload"
+import { HIDDEN_TRIP_TYPES } from "@/lib/ridesMap"
 
 export const metadata = { title: "Mon profil" }
 
@@ -16,14 +17,15 @@ export default async function ProfilePage() {
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     include: {
-      _count: { select: { trips: true } },
+      // On ne compte pas les voyages techniques (ex. « Mes sorties vélo »).
+      _count: { select: { trips: { where: { type: { notIn: HIDDEN_TRIP_TYPES } } } } },
     },
   })
 
   if (!user) redirect("/login")
 
   const trips = await db.trip.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, type: { notIn: HIDDEN_TRIP_TYPES } },
     // `select` (et non `include`) : on n'a besoin que des distances, surtout PAS
     // de `coverImageUrl` (base64) qui ferait dépasser 5 Mo (limite Accelerate).
     select: { segments: { select: { distanceM: true } } },

@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { getAuthenticatedUser, unauthorized } from "@/lib/api-auth"
+import { HIDDEN_TRIP_TYPES } from "@/lib/ridesMap"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export async function GET(): Promise<Response> {
 
   try {
     const trips = await db.trip.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, type: { notIn: HIDDEN_TRIP_TYPES } },
       orderBy: { createdAt: "desc" },
       // `select` sans coverImageUrl (base64) → réponse < 5 Mo (Accelerate).
       select: {

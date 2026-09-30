@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { Map, LogOut, User, ChevronDown } from "lucide-react"
+import { Map, LogOut, User, ChevronDown, Layers, Bike, Compass } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useRef, useEffect } from "react"
 
@@ -22,16 +22,26 @@ const navItems = [
   { href: "/dashboard", label: "Mes voyages", icon: Map },
 ]
 
+const mapsItems = [
+  { href: "/maps/rides",        label: "Mes sorties vélo", icon: Bike },
+  { href: "/maps/explorations", label: "Mes explorations", icon: Compass },
+]
+
 export function Header({ user }: HeaderProps) {
   const pathname = usePathname()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [mapsOpen, setMapsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const mapsRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+      }
+      if (mapsRef.current && !mapsRef.current.contains(e.target as Node)) {
+        setMapsOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClick)
@@ -71,6 +81,49 @@ export function Header({ user }: HeaderProps) {
             </Link>
           )
         })}
+
+        {/* Mes cartes — menu déroulant */}
+        <div className="relative" ref={mapsRef}>
+          <button
+            onClick={() => setMapsOpen((v) => !v)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              pathname.startsWith("/maps")
+                ? "bg-emerald-50 text-emerald-700"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            )}
+            aria-haspopup="true"
+            aria-expanded={mapsOpen}
+          >
+            <Layers className="h-4 w-4" />
+            Mes cartes
+            <ChevronDown className={cn("h-3.5 w-3.5 text-slate-400 transition-transform", mapsOpen && "rotate-180")} />
+          </button>
+
+          {mapsOpen && (
+            <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50">
+              {mapsItems.map(({ href, label, icon: Icon }) => {
+                const isActive = pathname === href || pathname.startsWith(href + "/")
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMapsOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+                      isActive
+                        ? "text-emerald-700 bg-emerald-50"
+                        : "text-slate-700 hover:bg-slate-50"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4", isActive ? "text-emerald-600" : "text-slate-400")} />
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* Right side */}
