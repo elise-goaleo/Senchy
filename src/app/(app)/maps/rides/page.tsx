@@ -7,9 +7,10 @@ import type { GeoJSON } from "geojson"
 
 export const metadata = { title: "Mes sorties vélo" }
 
-// Nombre de points conservés par trace pour l'aperçu carte (pleine résolution
-// inutile ici). Voir aussi la page détail d'un voyage, même stratégie.
+// Nombre de points conservés par trace pour l'aperçu carte / le profil (pleine
+// résolution inutile ici). Voir aussi la page détail d'un voyage, même stratégie.
 const MAX_MAP_POINTS = 600
+const MAX_CHART_POINTS = 300
 
 // Exécute `fn` sur chaque item avec une concurrence bornée (charge les champs
 // lourds trace par trace sans saturer la limite de 5 Mo d'Accelerate).
@@ -80,24 +81,39 @@ export default async function RidesMapPage() {
     select: { id: true, name: true, distanceM: true, elevationGainM: true, createdAt: true },
   })
 
-  // 2) Le geojson est chargé TRACE PAR TRACE (concurrence bornée) puis allégé :
-  //    une réponse Accelerate ne contient jamais qu'un seul tracé → jamais > 5 Mo,
-  //    même avec beaucoup de sorties.
-  const geoById = new Map<string, GeoJSON.FeatureCollection | null>()
+  // 2) Champs lourds chargés TRACE PAR TRACE (concurrence bornée), geojson et
+  //    elevationPoints dans DEUX requêtes distinctes : une réponse Accelerate ne
+  //    contient jamais qu'un seul champ d'une seule trace → jamais > 5 Mo.
+  type Heavy = {
+    geojson: GeoJSON.FeatureCollection | null
+    elevationPoints: Array<{ distanceM: number; elevationM: number }> | null
+  }
+  const heavyById = new Map<string, Heavy>()
   await mapLimit(metas, 6, async (m) => {
-    const row = await db.segment.findUnique({ where: { id: m.id }, select: { geojson: true } })
-    const raw = row?.geojson as unknown as GeoJSON.FeatureCollection | null
-    geoById.set(m.id, raw ? slimGeojson(raw, MAX_MAP_POINTS) : null)
+    const [geo, elev] = await Promise.all([
+      db.segment.findUnique({ where: { id: m.id }, select: { geojson: true } }),
+      db.segment.findUnique({ where: { id: m.id }, select: { elevationPoints: true } }),
+    ])
+    const rawGeo = geo?.geojson as unknown as GeoJSON.FeatureCollection | null
+    const rawElev = elev?.elevationPoints as unknown as Array<{ distanceM: number; elevationM: number }> | null
+    heavyById.set(m.id, {
+      geojson:         rawGeo ? slimGeojson(rawGeo, MAX_MAP_POINTS) : null,
+      elevationPoints: rawElev ? downsampleArray(rawElev, MAX_CHART_POINTS) : null,
+    })
   })
 
-  const traces: RideTrace[] = metas.map((s) => ({
-    id:             s.id,
-    name:           s.name,
-    geojson:        geoById.get(s.id) ?? null,
-    distanceM:      s.distanceM,
-    elevationGainM: s.elevationGainM,
-    createdAt:      s.createdAt.toISOString(),
-  }))
+  const traces: RideTrace[] = metas.map((s) => {
+    const heavy = heavyById.get(s.id)
+    return {
+      id:              s.id,
+      name:            s.name,
+      geojson:         heavy?.geojson ?? null,
+      elevationPoints: heavy?.elevationPoints ?? null,
+      distanceM:       s.distanceM,
+      elevationGainM:  s.elevationGainM,
+      createdAt:       s.createdAt.toISOString(),
+    }
+  })
 
   return <RidesMapView tripId={tripId} initialTraces={traces} />
 }

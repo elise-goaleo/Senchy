@@ -1,23 +1,26 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import type { FeatureCollection } from "geojson"
-import { Upload, Bike, Trash2, Route, TrendingUp, Loader2, AlertCircle } from "lucide-react"
+import { Upload, Bike, Trash2, Route, TrendingUp, Loader2, AlertCircle, ChevronDown, X } from "lucide-react"
 import { DynamicTripMap } from "@/components/map/DynamicTripMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
+import { ElevationChart } from "@/components/charts/ElevationChart"
+import { DownloadGpxButton } from "@/app/(app)/trips/[tripId]/segments/[segmentId]/DownloadGpxButton"
 import { useMapLayer } from "@/hooks/useMapLayer"
 import { cn } from "@/lib/utils"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface RideTrace {
-  id:             string
-  name:           string | null
-  geojson:        FeatureCollection | null
-  distanceM:      number | null
-  elevationGainM: number | null
-  createdAt:      string
+  id:              string
+  name:            string | null
+  geojson:         FeatureCollection | null
+  elevationPoints: Array<{ distanceM: number; elevationM: number }> | null
+  distanceM:       number | null
+  elevationGainM:  number | null
+  createdAt:       string
 }
 
 const MAX_GPX_SIZE = 10 * 1024 * 1024 // 10 Mo
@@ -53,6 +56,23 @@ export function RidesMapView({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [uploading, setUploading]   = useState(false)
   const [error, setError]           = useState<string | null>(null)
+  const [bottomCollapsed, setBottomCollapsed] = useState(false)
+
+  // Références vers chaque élément de la liste, pour scroller jusqu'à la trace
+  // sélectionnée (ex. après un clic sur la carte).
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({})
+
+  const selected = useMemo(
+    () => traces.find((t) => t.id === selectedId) ?? null,
+    [traces, selectedId]
+  )
+
+  // Au changement de sélection, on amène la trace dans le champ de vision de la
+  // liste (no-op si elle est déjà visible).
+  useEffect(() => {
+    if (!selectedId) return
+    itemRefs.current[selectedId]?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }, [selectedId])
 
   const mapSegments = useMemo(
     () => traces.map((t) => ({ id: t.id, type: "gpx", geojson: t.geojson, name: t.name })),
@@ -92,12 +112,13 @@ export function RidesMapView({
         }
         const seg = await res.json()
         added.push({
-          id:             seg.id,
-          name:           seg.name ?? stripGpxExt(file.name),
-          geojson:        (seg.geojson as FeatureCollection | null) ?? null,
-          distanceM:      seg.distanceM ?? null,
-          elevationGainM: seg.elevationGainM ?? null,
-          createdAt:      new Date().toISOString(),
+          id:              seg.id,
+          name:            seg.name ?? stripGpxExt(file.name),
+          geojson:         (seg.geojson as FeatureCollection | null) ?? null,
+          elevationPoints: (seg.elevationPoints as Array<{ distanceM: number; elevationM: number }> | null) ?? null,
+          distanceM:       seg.distanceM ?? null,
+          elevationGainM:  seg.elevationGainM ?? null,
+          createdAt:       new Date().toISOString(),
         })
       }
       if (added.length > 0) setTraces((prev) => [...added, ...prev])
@@ -188,7 +209,7 @@ export function RidesMapView({
               {traces.map((t) => {
                 const active = selectedId === t.id
                 return (
-                  <li key={t.id}>
+                  <li key={t.id} ref={(el) => { itemRefs.current[t.id] = el }}>
                     <div
                       onClick={() => setSelectedId(active ? null : t.id)}
                       className={cn(
@@ -250,6 +271,85 @@ export function RidesMapView({
                 tileUrl={layer.url}
                 tileAttribution={layer.attribution}
               />
+            </div>
+
+            {/* ── Panneau bas de page (trace sélectionnée) ─────────────── */}
+            <div
+              className={cn(
+                "absolute bottom-0 left-0 right-0 z-[450] transition-transform duration-300 ease-out",
+                selected ? "translate-y-0" : "translate-y-full"
+              )}
+            >
+              {selected && (
+                <div className="relative mx-3 mb-3">
+                  {/* Poignée de repli */}
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+                    <button
+                      onClick={() => setBottomCollapsed((v) => !v)}
+                      className="flex h-7 w-10 items-center justify-center rounded-full bg-white shadow text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", bottomCollapsed && "rotate-180")} />
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-4 px-5 py-4">
+                      {/* Icône */}
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0 bg-emerald-100">
+                        <Bike className="h-5 w-5 text-emerald-600" />
+                      </div>
+
+                      {/* Nom */}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-900 break-words">{selected.name || "Sortie"}</p>
+                        <p className="text-xs text-slate-400">Vélo</p>
+                      </div>
+
+                      <div className="h-8 w-px bg-slate-200 shrink-0" />
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-5 flex-1 min-w-0">
+                        {selected.distanceM != null && selected.distanceM > 0 && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Route className="h-4 w-4 text-slate-400" />
+                            <div>
+                              <p className="text-sm font-bold text-slate-900 leading-none">{(selected.distanceM / 1000).toFixed(1)} km</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Distance</p>
+                            </div>
+                          </div>
+                        )}
+                        {selected.elevationGainM != null && selected.elevationGainM > 0 && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <TrendingUp className="h-4 w-4 text-emerald-500" />
+                            <div>
+                              <p className="text-sm font-bold text-slate-900 leading-none">{Math.round(selected.elevationGainM)} m</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Dénivelé +</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions — téléchargement GPX + fermer */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <DownloadGpxButton segmentId={selected.id} hasGpx filename={selected.name ?? "trace"} />
+                        <button
+                          onClick={() => setSelectedId(null)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Profil altimétrique */}
+                    {!bottomCollapsed && selected.elevationPoints && selected.elevationPoints.length > 0 && (
+                      <div className="px-4 pb-4 pt-3 border-t border-slate-100">
+                        <ElevationChart points={selected.elevationPoints} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : (
