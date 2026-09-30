@@ -35,6 +35,18 @@ export interface ExplorationsMapProps {
   height?:          string
 }
 
+// ── Recalage de la taille Leaflet quand le conteneur change (ex. panneau replié)
+function ResizeHandler() {
+  const map = useMap()
+  useEffect(() => {
+    const el = map.getContainer()
+    const ro = new ResizeObserver(() => map.invalidateSize())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [map])
+  return null
+}
+
 // ── Cadrage initial sur les données existantes ────────────────────────────────
 function InitialFit({
   fc, visited, cities,
@@ -282,6 +294,7 @@ export default function ExplorationsMap({
         ))}
 
         <InitialFit fc={fc} visited={visited} cities={cities} />
+        <ResizeHandler />
       </MapContainer>
 
       {loadError && (

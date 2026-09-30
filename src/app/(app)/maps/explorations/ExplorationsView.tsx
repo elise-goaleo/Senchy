@@ -1,7 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Compass, Globe2, MapPin, X, Search, Loader2, Map as MapIcon } from "lucide-react"
+import { createPortal } from "react-dom"
+import {
+  Compass, Globe2, MapPin, X, Search, Loader2, Map as MapIcon,
+  PanelLeftClose, PanelLeftOpen,
+} from "lucide-react"
 import { DynamicExplorationsMap } from "@/components/map/DynamicExplorationsMap"
 import { MapLayerPicker } from "@/components/map/MapLayerPicker"
 import { AddressAutocomplete, type AddressCoords } from "@/components/AddressAutocomplete"
@@ -25,6 +29,8 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
   const [countryQuery, setCountryQuery] = useState("")
   const [cityInput, setCityInput]       = useState("")
   const [saveState, setSaveState]       = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [panelOpen, setPanelOpen]       = useState(true)
+  const [openModal, setOpenModal]       = useState<null | "countries" | "regions" | "cities">(null)
 
   const nameByCode = useMemo(() => {
     const m = new Map<string, string>()
@@ -118,7 +124,8 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
 
   return (
     <div className="flex flex-col lg:flex-row h-full">
-      {/* ── Panneau latéral ─────────────────────────────────────────── */}
+      {/* ── Panneau latéral (repliable) ─────────────────────────────── */}
+      {panelOpen && (
       <aside className="lg:w-[380px] lg:shrink-0 lg:h-full lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200 bg-white">
         <div className="p-5 space-y-6">
           <div>
@@ -126,7 +133,14 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
                 <Compass className="h-5 w-5 text-emerald-600" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900">Mes explorations</h1>
+              <h1 className="text-xl font-bold text-slate-900 flex-1">Mes explorations</h1>
+              <button
+                onClick={() => setPanelOpen(false)}
+                title="Replier le panneau"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
             </div>
             <p className="text-sm text-slate-500">
               {mode === "pays"
@@ -163,9 +177,17 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           <section className="space-y-2">
             <div className="flex items-center gap-2">
               <Globe2 className="h-4 w-4 text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-700">
+              <h2 className="text-sm font-semibold text-slate-700 flex-1">
                 Pays visités <span className="text-slate-400 font-normal">({visitedCountries.length})</span>
               </h2>
+              {visitedCountries.length > 0 && (
+                <button
+                  onClick={() => setOpenModal("countries")}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Voir tout
+                </button>
+              )}
             </div>
 
             {/* Recherche / ajout de pays */}
@@ -194,25 +216,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               )}
             </div>
 
-            {visitedCountries.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {visitedCountries.map((c) => (
-                  <span
-                    key={c.code}
-                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 pl-2.5 pr-1 py-1 text-xs font-medium text-emerald-800"
-                  >
-                    {c.name}
-                    <button
-                      onClick={() => toggleCountry(c.code)}
-                      className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-200 transition-colors"
-                      title="Retirer"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
+            {visitedCountries.length === 0 && (
               <p className="text-xs text-slate-400">Aucun pays pour le moment.</p>
             )}
           </section>
@@ -221,9 +225,17 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           <section className="space-y-2">
             <div className="flex items-center gap-2">
               <MapIcon className="h-4 w-4 text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-700">
+              <h2 className="text-sm font-semibold text-slate-700 flex-1">
                 Régions visitées <span className="text-slate-400 font-normal">({visitedRegions.length})</span>
               </h2>
+              {visitedRegions.length > 0 && (
+                <button
+                  onClick={() => setOpenModal("regions")}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Voir tout
+                </button>
+              )}
             </div>
 
             <p className="text-xs text-slate-400">
@@ -234,26 +246,7 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
                 : "Passez en mode Régions pour cliquer les régions des pays visités."}
             </p>
 
-            {visitedRegions.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {visitedRegions.map((r) => (
-                  <span
-                    key={r.key}
-                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 pl-2.5 pr-1 py-1 text-xs font-medium text-emerald-800"
-                    title={r.country}
-                  >
-                    {r.name}
-                    <button
-                      onClick={() => toggleRegion(r.key)}
-                      className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-emerald-200 transition-colors"
-                      title="Retirer"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
+            {visitedRegions.length === 0 && (
               <p className="text-xs text-slate-400">Aucune région pour le moment.</p>
             )}
           </section>
@@ -262,9 +255,17 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           <section className="space-y-2">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-700">
+              <h2 className="text-sm font-semibold text-slate-700 flex-1">
                 Villes visitées <span className="text-slate-400 font-normal">({cities.length})</span>
               </h2>
+              {cities.length > 0 && (
+                <button
+                  onClick={() => setOpenModal("cities")}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Voir tout
+                </button>
+              )}
             </div>
 
             <AddressAutocomplete
@@ -273,34 +274,27 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
               placeholder="Ajouter une ville (ex : Lisbonne)…"
             />
 
-            {cities.length > 0 ? (
-              <ul className="space-y-1 pt-1">
-                {cities.map((c, i) => (
-                  <li
-                    key={`${c.name}-${i}`}
-                    className="group flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                    <span className="flex-1 min-w-0 text-sm text-slate-700 truncate">{c.name}</span>
-                    <button
-                      onClick={() => setCities((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 transition-all"
-                      title="Retirer"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
+            {cities.length === 0 && (
               <p className="text-xs text-slate-400">Aucune ville pour le moment.</p>
             )}
           </section>
         </div>
       </aside>
+      )}
 
       {/* ── Carte ───────────────────────────────────────────────────── */}
       <div className="relative flex-1 min-h-[55vh] lg:min-h-0 lg:h-full">
+        {/* Rouvrir le panneau quand il est replié */}
+        {!panelOpen && (
+          <button
+            onClick={() => setPanelOpen(true)}
+            title="Afficher le panneau"
+            className="absolute top-3 left-3 z-[500] flex h-9 items-center gap-1.5 rounded-lg bg-white px-2.5 text-sm font-medium text-slate-600 shadow border border-slate-200 hover:text-slate-900"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            Ajouter une zone
+          </button>
+        )}
         <div className="absolute top-3 right-3 z-[400]">
           <MapLayerPicker layers={layers} current={layer} onSelect={setLayer} />
         </div>
@@ -320,6 +314,123 @@ export function ExplorationsView({ initial }: { initial: ExplorationsData }) {
           />
         </div>
       </div>
+
+      {/* ── Modale « Voir tout » ─────────────────────────────────────── */}
+      {openModal === "countries" && (
+        <ListModal
+          title="Pays visités"
+          items={visitedCountries.map((c) => ({ key: c.code, primary: c.name }))}
+          onRemove={(k) => toggleCountry(k)}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "regions" && (
+        <ListModal
+          title="Régions visitées"
+          items={visitedRegions.map((r) => ({ key: r.key, primary: r.name, secondary: r.country }))}
+          onRemove={(k) => toggleRegion(k)}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "cities" && (
+        <ListModal
+          title="Villes visitées"
+          items={cities.map((c, i) => ({ key: String(i), primary: c.name }))}
+          onRemove={(k) => setCities((prev) => prev.filter((_, idx) => idx !== Number(k)))}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
     </div>
   )
+}
+
+// ── Modale listant tous les éléments d'une catégorie ──────────────────────────
+
+function ListModal({
+  title, items, onRemove, onClose,
+}: {
+  title:    string
+  items:    Array<{ key: string; primary: string; secondary?: string }>
+  onRemove: (key: string) => void
+  onClose:  () => void
+}) {
+  const [q, setQ] = useState("")
+  const [mounted, setMounted] = useState(false)
+  const portalRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => { portalRef.current = document.body; setMounted(true) }, [])
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", h)
+    document.body.style.overflow = "hidden"
+    return () => { window.removeEventListener("keydown", h); document.body.style.overflow = "" }
+  }, [onClose])
+
+  const filtered = items.filter((it) =>
+    (it.primary + " " + (it.secondary ?? "")).toLowerCase().includes(q.trim().toLowerCase())
+  )
+
+  const overlay = (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-900">
+            {title} <span className="text-slate-400 font-normal">({items.length})</span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Recherche */}
+        {items.length > 8 && (
+          <div className="px-5 pt-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Filtrer…"
+                className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Liste */}
+        <ul className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+          {filtered.map((it) => (
+            <li
+              key={it.key}
+              className="group flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-slate-50 transition-colors"
+            >
+              <span className="flex-1 min-w-0">
+                <span className="text-sm text-slate-800">{it.primary}</span>
+                {it.secondary && <span className="text-xs text-slate-400 ml-1.5">· {it.secondary}</span>}
+              </span>
+              <button
+                onClick={() => onRemove(it.key)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="Retirer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="px-2.5 py-6 text-center text-sm text-slate-400">Aucun résultat.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  )
+
+  return mounted && portalRef.current ? createPortal(overlay, portalRef.current) : null
 }
