@@ -82,8 +82,8 @@ export function Header({ user }: HeaderProps) {
           )
         })}
 
-        {/* Mes cartes — menu déroulant */}
-        <div className="relative" ref={mapsRef}>
+        {/* Mes cartes — menu déroulant (masqué sur mobile : pages peu lisibles) */}
+        <div className="relative hidden sm:block" ref={mapsRef}>
           <button
             onClick={() => setMapsOpen((v) => !v)}
             className={cn(
