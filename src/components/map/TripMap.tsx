@@ -228,10 +228,24 @@ function InitialFit({ segments, pois }: Pick<TripMapProps, "segments" | "pois">)
       ...segments.flatMap((s) => s.geojson ? extractLatLngs(s.geojson) : []),
       ...pois.map((p): [number, number] => [p.lat, p.lon]),
     ]
-    if (pts.length > 0) {
-      map.fitBounds(L.latLngBounds(pts), { padding: [48, 48] })
-      fitted.current = true
-    }
+    if (pts.length === 0) return
+    const bounds = L.latLngBounds(pts)
+    fitted.current = true
+    // Juste après un montage (navigation client + import dynamique de la carte),
+    // le conteneur peut ne pas avoir sa taille définitive : un fitBounds calculé
+    // à cet instant retomberait sur la vue par défaut. On recadre à la frame
+    // suivante, après invalidateSize, une fois la taille connue.
+    // Pas de cleanup qui annulerait la frame : l'effet se relance à chaque rendu
+    // (segments/pois recréés) et, `fitted` étant déjà vrai, ne reprogrammerait
+    // rien — on garde donc la frame et on protège le callback d'un démontage.
+    requestAnimationFrame(() => {
+      try {
+        map.invalidateSize()
+        map.fitBounds(bounds, { padding: [48, 48] })
+      } catch {
+        // carte démontée entre-temps : rien à faire
+      }
+    })
   }, [map, segments, pois])
   return null
 }
