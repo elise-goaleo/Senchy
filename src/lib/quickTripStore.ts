@@ -22,39 +22,83 @@ const SS_NAME = "quicktrip:name"
 
 let mem: QuickTripEntry | null = null
 
+// Pour la persistance, on allège le tracé : seulement les lignes, sans
+// `properties` (élévation, temps…), coordonnées arrondies à ~1 m et
+// échantillonnées. Une trace complète peut dépasser le quota ~5 Mo de
+// localStorage ; la version allégée reste bien en-dessous tout en suffisant à
+// l'affichage et à la recherche de services le long du parcours.
+const round5 = (n: number) => Math.round(n * 1e5) / 1e5
+
+function downsample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr
+  const step = (arr.length - 1) / (max - 1)
+  const out: T[] = []
+  for (let i = 0; i < max; i++) out.push(arr[Math.round(i * step)])
+  return out
+}
+
+function slimFc(fc: FeatureCollection, maxPerLine: number): FeatureCollection {
+  const features = (fc.features ?? [])
+    .filter((f) => f.geometry && (f.geometry.type === "LineString" || f.geometry.type === "MultiLineString"))
+    .map((f) => {
+      const g = f.geometry as GeoJSON.LineString | GeoJSON.MultiLineString
+      if (g.type === "LineString") {
+        return {
+          type: "Feature" as const,
+          properties: {},
+          geometry: {
+            type: "LineString" as const,
+            coordinates: downsample(g.coordinates, maxPerLine).map((c) => [round5(c[0]), round5(c[1])]),
+          },
+        }
+      }
+      return {
+        type: "Feature" as const,
+        properties: {},
+        geometry: {
+          type: "MultiLineString" as const,
+          coordinates: g.coordinates.map((l) => downsample(l, maxPerLine).map((c) => [round5(c[0]), round5(c[1])])),
+        },
+      }
+    })
+  return { type: "FeatureCollection", features }
+}
+
 export function setQuickTrip(entry: QuickTripEntry): void {
   mem = entry
-  try {
-    localStorage.setItem(LS_FC, JSON.stringify(entry.fc))
-    localStorage.setItem(LS_NAME, entry.name)
-  } catch {
-    // Quota dépassé ou localStorage indisponible : le handoff mémoire suffit.
+  // On tente des versions de plus en plus légères jusqu'à passer sous le quota.
+  for (const maxPerLine of [4000, 2000, 1000, 500]) {
+    try {
+      localStorage.setItem(LS_FC, JSON.stringify(slimFc(entry.fc, maxPerLine)))
+      localStorage.setItem(LS_NAME, entry.name)
+      return
+    } catch {
+      // Quota probablement dépassé : on réessaie avec moins de points.
+    }
   }
+  // Même la version minimale ne passe pas : le handoff mémoire suffit pour la
+  // session en cours (la trace sera à réimporter après fermeture).
 }
 
 export function getQuickTrip(): QuickTripEntry | null {
   if (mem) return mem
   try {
-    let raw = localStorage.getItem(LS_FC)
-    let name = localStorage.getItem(LS_NAME)
-    // Migration depuis l'ancien stockage de session, le cas échéant.
-    if (!raw) {
-      const ssRaw = sessionStorage.getItem(SS_FC)
-      if (ssRaw) {
-        raw = ssRaw
-        name = sessionStorage.getItem(SS_NAME)
-        try {
-          localStorage.setItem(LS_FC, ssRaw)
-          if (name) localStorage.setItem(LS_NAME, name)
-          sessionStorage.removeItem(SS_FC)
-          sessionStorage.removeItem(SS_NAME)
-        } catch {
-          // ignore (quota) : on sait au moins lire la trace pour cette fois.
-        }
-      }
-    }
+    const raw = localStorage.getItem(LS_FC)
     if (raw) {
-      return { name: name ?? "Trace", fc: JSON.parse(raw) as FeatureCollection }
+      return { name: localStorage.getItem(LS_NAME) ?? "Trace", fc: JSON.parse(raw) as FeatureCollection }
+    }
+    // Migration depuis l'ancien stockage de session, le cas échéant : on relit
+    // puis on repersiste en version allégée via setQuickTrip.
+    const ssRaw = sessionStorage.getItem(SS_FC)
+    if (ssRaw) {
+      const entry: QuickTripEntry = {
+        name: sessionStorage.getItem(SS_NAME) ?? "Trace",
+        fc: JSON.parse(ssRaw) as FeatureCollection,
+      }
+      sessionStorage.removeItem(SS_FC)
+      sessionStorage.removeItem(SS_NAME)
+      setQuickTrip(entry)
+      return entry
     }
   } catch {
     // ignore (quota / JSON invalide)
